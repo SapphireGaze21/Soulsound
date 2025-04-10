@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, jsonify
 from utils.emotion import EmotionAnalyzer
 from utils.spotify import SpotifyRecommender
+import random
 
 app = Flask(__name__)
 emotion_analyzer = EmotionAnalyzer()
@@ -76,6 +77,51 @@ def analyze():
         'emotion_recommendations': emotion_recommendations,
         'general_recommendations': general_recommendations
     })
+
+@app.route('/shuffle', methods=['POST'])
+def shuffle():
+    """
+    Shuffle song recommendations for a specific emotion or get new general recommendations.
+    """
+    data = request.json
+    emotion = data.get('emotion', '')
+    language = data.get('language', 'en')
+    is_general = data.get('is_general', False)
+    
+    if not emotion and not is_general:
+        return jsonify({'error': 'No emotion provided'}), 400
+    
+    # Generate a random offset to get different songs
+    offset = random.randint(5, 20)
+    
+    if is_general:
+        # Get new general recommendations
+        keywords = data.get('keywords', [])
+        if not keywords:
+            return jsonify({'error': 'No keywords provided for general recommendations'}), 400
+        
+        recommendations = spotify_recommender.get_recommendations(
+            keywords,
+            language=language,
+            limit=5,
+            offset=offset
+        )
+        
+        return jsonify({
+            'recommendations': recommendations
+        })
+    else:
+        # Get new recommendations for the specific emotion
+        recommendations = spotify_recommender.get_recommendations_for_emotion(
+            emotion,
+            language=language,
+            limit=5,
+            offset=offset
+        )
+        
+        return jsonify({
+            'recommendations': recommendations
+        })
 
 @app.route('/test_emotion', methods=['GET'])
 def test_emotion():

@@ -76,6 +76,32 @@
         .love { background-color: #FF69B4; }
         .surprise { background-color: #FF8C00; }
         .neutral { background-color: #808080; }
+        
+        /* Shuffle button styles */
+        .shuffle-btn {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 12px;
+            background-color: #4f46e5;
+            color: white;
+            border-radius: 5px;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin-top: 10px;
+        }
+        .shuffle-btn:hover {
+            background-color: #4338ca;
+        }
+        .shuffle-btn svg {
+            margin-right: 5px;
+            width: 16px;
+            height: 16px;
+        }
+        .shuffle-btn.loading {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -204,7 +230,7 @@
                                 e.charAt(0).toUpperCase() + e.slice(1)).join(', ')}</p>` : 
                               ''}
                             <h4 class="font-semibold mb-2">Recommended Songs:</h4>
-                            <ul class="song-list">
+                            <ul class="song-list" id="songs-${emotion.emotion}">
                               ${data.emotion_recommendations[emotion.emotion] ? 
                                 data.emotion_recommendations[emotion.emotion].map(song => `
                                   <li><a href="${song.url}" target="_blank" class="hover:text-indigo-700">
@@ -214,6 +240,12 @@
                                 '<li class="text-gray-500">No recommendations available</li>'
                               }
                             </ul>
+                            <button class="shuffle-btn" data-emotion="${emotion.emotion}" onclick="shuffleSongs('${emotion.emotion}', false)">
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                              Shuffle Songs
+                            </button>
                           </div>
                         </div>
                       `).join('');
@@ -228,7 +260,7 @@
                         <div class="emotion-card">
                           <div class="emotion-content">
                             <h4 class="font-semibold mb-3">General Recommendations</h4>
-                            <ul class="song-list">
+                            <ul class="song-list" id="general-songs">
                               ${data.general_recommendations.map(song => `
                                 <li>
                                   <a href="${song.url}" target="_blank" class="hover:text-indigo-700">
@@ -237,6 +269,12 @@
                                 </li>
                               `).join('')}
                             </ul>
+                            <button class="shuffle-btn" onclick="shuffleSongs('', true)">
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                              Shuffle Songs
+                            </button>
                           </div>
                         </div>
                     `;
@@ -255,6 +293,89 @@
                 document.getElementById('results').classList.remove('hidden');
             }
         });
+
+        // Function to shuffle songs
+        async function shuffleSongs(emotion, isGeneral) {
+            const language = document.getElementById('language-select').value;
+            const button = event.currentTarget;
+            const songListId = isGeneral ? 'general-songs' : `songs-${emotion}`;
+            const songList = document.getElementById(songListId);
+            
+            // Show loading state
+            button.classList.add('loading');
+            button.innerHTML = `
+                <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Loading...
+            `;
+            
+            try {
+                let response;
+                if (isGeneral) {
+                    // Get keywords from the primary emotion
+                    const primaryEmotion = document.querySelector('.emotion-header h3')?.textContent.toLowerCase() || '';
+                    const keywords = [];
+                    
+                    // Add some default keywords if we can't determine the primary emotion
+                    if (primaryEmotion) {
+                        keywords.push(primaryEmotion);
+                    } else {
+                        keywords.push('mood', 'feeling', 'emotion');
+                    }
+                    
+                    response = await fetch('/shuffle', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ 
+                            is_general: true,
+                            keywords: keywords,
+                            language: language 
+                        }),
+                    });
+                } else {
+                    response = await fetch('/shuffle', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ 
+                            emotion: emotion,
+                            language: language 
+                        }),
+                    });
+                }
+                
+                const data = await response.json();
+                
+                if (data.recommendations && data.recommendations.length > 0) {
+                    songList.innerHTML = data.recommendations.map(song => `
+                        <li>
+                            <a href="${song.url}" target="_blank" class="hover:text-indigo-700">
+                                ${song.name} - ${song.artist}
+                            </a>
+                        </li>
+                    `).join('');
+                } else {
+                    songList.innerHTML = '<li class="text-gray-500">No recommendations available</li>';
+                }
+            } catch (error) {
+                console.error('Error shuffling songs:', error);
+                songList.innerHTML = '<li class="text-red-500">Error loading new recommendations</li>';
+            } finally {
+                // Reset button state
+                button.classList.remove('loading');
+                button.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Shuffle Songs
+                `;
+            }
+        }
     </script>
 </body>
 </html>

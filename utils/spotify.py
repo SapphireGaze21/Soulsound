@@ -96,10 +96,16 @@ class SpotifyRecommender:
             'ur': ['urdu pop', 'ghazal', 'qawwali']
         }
 
-    def get_recommendations_for_emotion(self, emotion, language='en', limit=2):
+    def get_recommendations_for_emotion(self, emotion, language='en', limit=2, offset=0):
         """
         Get song recommendations for a specific emotion and language.
         Returns a list of songs with their Spotify links.
+        
+        Args:
+            emotion: The emotion to get recommendations for
+            language: The language code (default: 'en')
+            limit: Maximum number of recommendations to return (default: 2)
+            offset: Offset for pagination to get different results (default: 0)
         """
         recommendations = []
         market = self.language_markets.get(language, 'US')  # Default to US if language not found
@@ -118,6 +124,7 @@ class SpotifyRecommender:
                 q=search_query,
                 type='track',
                 limit=limit,
+                offset=offset,  # Add offset for pagination
                 market=market
             )
             
@@ -145,6 +152,7 @@ class SpotifyRecommender:
                     q=search_query,
                     type='track',
                     limit=limit,
+                    offset=offset,  # Add offset for pagination
                     market=market
                 )
                 
@@ -167,6 +175,7 @@ class SpotifyRecommender:
                 q=emotion,
                 type='track',
                 limit=limit,
+                offset=offset,  # Add offset for pagination
                 market=market
             )
             
@@ -182,10 +191,16 @@ class SpotifyRecommender:
         # Return only the requested number of recommendations
         return recommendations[:limit]
 
-    def get_recommendations(self, keywords, language='en', limit=3):
+    def get_recommendations(self, keywords, language='en', limit=3, offset=0):
         """
         Get song recommendations based on emotion keywords and language.
         Returns a list of songs with their Spotify links.
+        
+        Args:
+            keywords: List of keywords to search for
+            language: The language code (default: 'en')
+            limit: Maximum number of recommendations to return (default: 3)
+            offset: Offset for pagination to get different results (default: 0)
         """
         recommendations = []
         market = self.language_markets.get(language, 'US')  # Default to US if language not found
@@ -198,7 +213,7 @@ class SpotifyRecommender:
         for keyword in keywords:
             # First try with language-specific genre
             for genre in language_genres:
-                # Create a search query that combines emotion keyword, language term, and genre
+                # Create a search query that combines keyword, language term, and genre
                 search_query = f"{keyword} genre:{genre}"
                 
                 # Search for tracks using the combined query and language-specific market
@@ -206,6 +221,7 @@ class SpotifyRecommender:
                     q=search_query,
                     type='track',
                     limit=limit,
+                    offset=offset,  # Add offset for pagination
                     market=market
                 )
                 
@@ -225,7 +241,7 @@ class SpotifyRecommender:
             # If we still need more recommendations, try with language terms
             if len(recommendations) < limit:
                 for lang_term in language_terms:
-                    # Create a search query that combines emotion keyword and language term
+                    # Create a search query that combines keyword and language term
                     search_query = f"{keyword} {lang_term}"
                     
                     # Search for tracks using the combined query and language-specific market
@@ -233,6 +249,7 @@ class SpotifyRecommender:
                         q=search_query,
                         type='track',
                         limit=limit,
+                        offset=offset,  # Add offset for pagination
                         market=market
                     )
                     
@@ -255,6 +272,7 @@ class SpotifyRecommender:
                     q=keyword,
                     type='track',
                     limit=limit,
+                    offset=offset,  # Add offset for pagination
                     market=market
                 )
                 
@@ -266,10 +284,6 @@ class SpotifyRecommender:
                         'url': track['external_urls']['spotify'],
                         'preview_url': track['preview_url']
                     })
-                
-                # If we have enough recommendations, break
-                if len(recommendations) >= limit:
-                    break
         
         # Return only the requested number of recommendations
         return recommendations[:limit] 
