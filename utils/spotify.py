@@ -96,46 +96,56 @@ class SpotifyRecommender:
             'ur': ['urdu pop', 'ghazal', 'qawwali']
         }
 
-    def get_recommendations_for_emotion(self, emotion, language='en', limit=2, offset=0):
+    def get_recommendations_for_emotion(self, emotion, language='en', limit=3, offset=0):
         """
         Get song recommendations for a specific emotion and language.
-        Returns a list of songs with their Spotify links.
-        
-        Args:
-            emotion: The emotion to get recommendations for
-            language: The language code (default: 'en')
-            limit: Maximum number of recommendations to return (default: 2)
-            offset: Offset for pagination to get different results (default: 0)
+        Returns a mix of popular and underrated songs.
         """
         recommendations = []
-        market = self.language_markets.get(language, 'US')  # Default to US if language not found
+        market = self.language_markets.get(language, 'US')
         
         # Get language-specific terms and genres
         language_terms = self.language_terms.get(language, [])
         language_genres = self.language_genres.get(language, [])
         
-        # First try with language-specific genre
+        # First try with language-specific genre for popular songs
         for genre in language_genres:
             # Create a search query that combines emotion keyword, language term, and genre
             search_query = f"{emotion} genre:{genre}"
             
-            # Search for tracks using the combined query and language-specific market
+            # Search for popular tracks
             results = self.sp.search(
                 q=search_query,
                 type='track',
                 limit=limit,
-                offset=offset,  # Add offset for pagination
+                offset=offset,
                 market=market
             )
             
-            # Extract relevant information from each track
-            for track in results['tracks']['items']:
-                recommendations.append({
-                    'name': track['name'],
-                    'artist': track['artists'][0]['name'],
-                    'url': track['external_urls']['spotify'],
-                    'preview_url': track['preview_url']
-                })
+            # Sort tracks by popularity
+            tracks = sorted(results['tracks']['items'], key=lambda x: x['popularity'], reverse=True)
+            
+            # Add top popular tracks
+            for track in tracks[:limit//2]:  # Get half of the limit as popular songs
+                if track['popularity'] > 50:  # Only include relatively popular songs
+                    recommendations.append({
+                        'name': track['name'],
+                        'artist': track['artists'][0]['name'],
+                        'url': track['external_urls']['spotify'],
+                        'preview_url': track['preview_url'],
+                        'popularity': track['popularity']
+                    })
+            
+            # Add underrated tracks
+            for track in tracks[limit//2:]:  # Get the other half as underrated songs
+                if track['popularity'] < 50:  # Only include less popular songs
+                    recommendations.append({
+                        'name': track['name'],
+                        'artist': track['artists'][0]['name'],
+                        'url': track['external_urls']['spotify'],
+                        'preview_url': track['preview_url'],
+                        'popularity': track['popularity']
+                    })
             
             # If we have enough recommendations, break
             if len(recommendations) >= limit:
@@ -144,52 +154,84 @@ class SpotifyRecommender:
         # If we still need more recommendations, try with language terms
         if len(recommendations) < limit:
             for lang_term in language_terms:
-                # Create a search query that combines emotion keyword and language term
                 search_query = f"{emotion} {lang_term}"
                 
-                # Search for tracks using the combined query and language-specific market
                 results = self.sp.search(
                     q=search_query,
                     type='track',
                     limit=limit,
-                    offset=offset,  # Add offset for pagination
+                    offset=offset,
                     market=market
                 )
                 
-                # Extract relevant information from each track
-                for track in results['tracks']['items']:
-                    recommendations.append({
-                        'name': track['name'],
-                        'artist': track['artists'][0]['name'],
-                        'url': track['external_urls']['spotify'],
-                        'preview_url': track['preview_url']
-                    })
+                # Sort tracks by popularity
+                tracks = sorted(results['tracks']['items'], key=lambda x: x['popularity'], reverse=True)
                 
-                # If we have enough recommendations, break
+                # Add popular tracks
+                for track in tracks[:limit//2]:
+                    if track['popularity'] > 50 and len(recommendations) < limit:
+                        recommendations.append({
+                            'name': track['name'],
+                            'artist': track['artists'][0]['name'],
+                            'url': track['external_urls']['spotify'],
+                            'preview_url': track['preview_url'],
+                            'popularity': track['popularity']
+                        })
+                
+                # Add underrated tracks
+                for track in tracks[limit//2:]:
+                    if track['popularity'] < 50 and len(recommendations) < limit:
+                        recommendations.append({
+                            'name': track['name'],
+                            'artist': track['artists'][0]['name'],
+                            'url': track['external_urls']['spotify'],
+                            'preview_url': track['preview_url'],
+                            'popularity': track['popularity']
+                        })
+                
                 if len(recommendations) >= limit:
                     break
         
-        # If we still need more recommendations, try with just the keyword in the selected market
+        # If we still need more recommendations, try with just the keyword
         if len(recommendations) < limit:
             results = self.sp.search(
                 q=emotion,
                 type='track',
                 limit=limit,
-                offset=offset,  # Add offset for pagination
+                offset=offset,
                 market=market
             )
             
-            # Extract relevant information from each track
-            for track in results['tracks']['items']:
-                recommendations.append({
-                    'name': track['name'],
-                    'artist': track['artists'][0]['name'],
-                    'url': track['external_urls']['spotify'],
-                    'preview_url': track['preview_url']
-                })
+            # Sort tracks by popularity
+            tracks = sorted(results['tracks']['items'], key=lambda x: x['popularity'], reverse=True)
+            
+            # Add remaining tracks
+            for track in tracks:
+                if len(recommendations) < limit:
+                    recommendations.append({
+                        'name': track['name'],
+                        'artist': track['artists'][0]['name'],
+                        'url': track['external_urls']['spotify'],
+                        'preview_url': track['preview_url'],
+                        'popularity': track['popularity']
+                    })
+        
+        # Sort recommendations to mix popular and underrated songs
+        recommendations.sort(key=lambda x: x['popularity'], reverse=True)
+        mixed_recommendations = []
+        
+        # Interleave popular and underrated songs
+        popular = [r for r in recommendations if r['popularity'] > 50]
+        underrated = [r for r in recommendations if r['popularity'] <= 50]
+        
+        for i in range(max(len(popular), len(underrated))):
+            if i < len(popular):
+                mixed_recommendations.append(popular[i])
+            if i < len(underrated):
+                mixed_recommendations.append(underrated[i])
         
         # Return only the requested number of recommendations
-        return recommendations[:limit]
+        return mixed_recommendations[:limit]
 
     def get_recommendations(self, keywords, language='en', limit=3, offset=0):
         """

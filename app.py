@@ -18,7 +18,7 @@ def analyze():
     
     if not text:
         return jsonify({'error': 'No text provided'}), 400
-    
+
     # Analyze emotion
     emotion_result = emotion_analyzer.analyze_text(text)
     
@@ -26,11 +26,11 @@ def analyze():
     emotion_recommendations = {}
     for emotion_data in emotion_result['emotions']:
         emotion = emotion_data['emotion']
-        # Get 5 songs for each emotion
+        # Get 3 songs for each emotion
         songs = spotify_recommender.get_recommendations_for_emotion(
-            emotion,
+            emotion, 
             language=language,
-            limit=5
+            limit=3
         )
         emotion_recommendations[emotion] = songs
         
@@ -41,19 +41,19 @@ def analyze():
                 similar_songs = spotify_recommender.get_recommendations_for_emotion(
                     similar_emotion,
                     language=language,
-                    limit=2  # Get fewer songs for similar emotions
+                    limit=1  # Get fewer songs for similar emotions
                 )
                 # Add to the main emotion's recommendations
                 emotion_recommendations[emotion].extend(similar_songs)
             
-            # Remove duplicates and limit to 5 songs
+            # Remove duplicates and limit to 3 songs
             seen = set()
             unique_songs = []
             for song in emotion_recommendations[emotion]:
                 if song['name'] not in seen:
                     seen.add(song['name'])
                     unique_songs.append(song)
-                if len(unique_songs) >= 5:
+                if len(unique_songs) >= 3:
                     break
             emotion_recommendations[emotion] = unique_songs
     
@@ -68,14 +68,15 @@ def analyze():
     general_recommendations = spotify_recommender.get_recommendations(
         prioritized_keywords,
         language=language,
-        limit=5
+        limit=3
     )
     
     return jsonify({
         'primary_emotion': emotion_result['primary_emotion'],
         'emotions': emotion_result['emotions'],
         'emotion_recommendations': emotion_recommendations,
-        'general_recommendations': general_recommendations
+        'general_recommendations': general_recommendations,
+        'keywords': prioritized_keywords
     })
 
 @app.route('/shuffle', methods=['POST'])
@@ -103,7 +104,7 @@ def shuffle():
         recommendations = spotify_recommender.get_recommendations(
             keywords,
             language=language,
-            limit=5,
+            limit=3,
             offset=offset
         )
         
@@ -115,7 +116,7 @@ def shuffle():
         recommendations = spotify_recommender.get_recommendations_for_emotion(
             emotion,
             language=language,
-            limit=5,
+            limit=3,
             offset=offset
         )
         
