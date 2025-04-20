@@ -6,12 +6,21 @@ import random
 import os
 from functools import wraps
 from bson.objectid import ObjectId
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)  # Required for session management
+app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))
+
+# Initialize services
 emotion_analyzer = EmotionAnalyzer()
 spotify_recommender = SpotifyRecommender()
 db = MongoDB(app)
+
+# Configure MongoDB
+app.config["MONGO_URI"] = os.environ.get("MONGO_URI", "mongodb://localhost:27017/soulsound")
 
 def login_required(f):
     @wraps(f)
@@ -377,5 +386,47 @@ def test_emotion():
 def playlists_page():
     return render_template('playlists.html')
 
+@app.route('/journals-page')
+@login_required
+def journals_page():
+    return render_template('journals.html')
+
+@app.route('/journals', methods=['GET'])
+@login_required
+def get_journals():
+    user_id = session['user_id']
+    journals = list(db.get_journals(user_id))
+    # Convert ObjectId to string and format timestamp for JSON serialization
+    for journal in journals:
+        journal['_id'] = str(journal['_id'])
+        # Convert timestamp to ISO format string
+        if 'timestamp' in journal and journal['timestamp']:
+            journal['timestamp'] = journal['timestamp'].isoformat()
+    return jsonify({'journals': journals})
+
+@app.route('/journals', methods=['POST'])
+@login_required
+def save_journal():
+    user_id = session['user_id']
+    content = request.json.get('content')
+    if not content:
+        return jsonify({'error': 'No content provided'}), 400
+    
+    journal_id = db.save_journal(user_id, content)
+    return jsonify({'journal_id': str(journal_id)})
+
+@app.route('/journals/<journal_id>', methods=['DELETE'])
+@login_required
+def delete_journal(journal_id):
+    user_id = session['user_id']
+    success = db.delete_journal(user_id, journal_id)
+    if success:
+        return jsonify({'message': 'Journal deleted successfully'})
+    return jsonify({'error': 'Journal not found or unauthorized'}), 404
+
 if __name__ == '__main__':
-    app.run(debug=True) 
+    # Use environment variable for port with a default of 5000
+    port = int(os.environ.get("PORT", 5000))
+    # In production, you might want to disable debug mode
+    debug = os.environ.get("FLASK_ENV") == "development"
+    app.run(host='0.0.0.0', port=port, debug=debug) 

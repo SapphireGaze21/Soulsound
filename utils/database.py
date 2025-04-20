@@ -197,4 +197,40 @@ class MongoDB:
             return None
         except Exception as e:
             print(f"Error getting user: {e}")
-            return None 
+            return None
+
+    def save_journal(self, user_id, content):
+        """Save a new journal entry"""
+        try:
+            journal = {
+                'user_id': user_id,
+                'content': content,
+                'timestamp': datetime.utcnow()
+            }
+            result = self.db.journals.insert_one(journal)
+            return result.inserted_id
+        except Exception as e:
+            print(f"Error saving journal: {str(e)}")
+            return None
+
+    def get_journals(self, user_id):
+        """Get all journals for a user"""
+        try:
+            return self.db.journals.find(
+                {'user_id': user_id}
+            ).sort('timestamp', -1)  # Sort by newest first
+        except Exception as e:
+            print(f"Error getting journals: {str(e)}")
+            return []
+
+    def delete_journal(self, user_id, journal_id):
+        """Delete a journal entry"""
+        try:
+            result = self.db.journals.delete_one({
+                '_id': ObjectId(journal_id),
+                'user_id': user_id
+            })
+            return result.deleted_count > 0
+        except Exception as e:
+            print(f"Error deleting journal: {str(e)}")
+            return False 

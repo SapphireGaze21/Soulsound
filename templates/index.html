@@ -284,6 +284,7 @@
                 <h1 class="text-2xl font-bold">Soul Sound</h1>
                 <nav>
                     <ul class="flex space-x-4">
+                        <li><a href="/journals-page" class="hover:text-indigo-200">My Journals</a></li>
                         <li><a href="/playlists-page" class="hover:text-indigo-200">My Playlists</a></li>
                         <li><a href="/logout" class="hover:text-indigo-200">Logout</a></li>
                     </ul>
@@ -341,12 +342,21 @@
                     ></textarea>
                 </div>
                 
-                <button
-                    id="analyze-btn"
-                    class="w-full bg-indigo-600 text-white py-2 px-6 rounded-lg hover:bg-indigo-700 transition duration-200 text-sm font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                >
-                    Analyze
-                </button>
+                <div class="flex space-x-4">
+                    <button
+                        id="analyze-btn"
+                        class="flex-1 bg-indigo-600 text-white py-2 px-6 rounded-lg hover:bg-indigo-700 transition duration-200 text-sm font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                    >
+                        Analyze
+                    </button>
+
+                    <button
+                        id="save-journal-btn"
+                        class="flex-1 bg-green-600 text-white py-2 px-6 rounded-lg hover:bg-green-700 transition duration-200 text-sm font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                    >
+                        Save Journal
+                    </button>
+                </div>
             </div>
             
             <div id="loading" class="loading mt-4 text-center">
@@ -739,6 +749,37 @@
             // Redirect to playlists page
             window.location.href = '/playlists-page';
         }
+
+        // Add event listener for save journal button
+        document.getElementById('save-journal-btn').addEventListener('click', async () => {
+            const text = document.getElementById('journal-entry').value.trim();
+            
+            if (!text) {
+                alert('Please enter some text to save!');
+                return;
+            }
+
+            try {
+                const response = await fetch('/journals', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ content: text }),
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    alert('Journal saved successfully!');
+                } else {
+                    alert(data.error || 'Failed to save journal');
+                }
+            } catch (error) {
+                console.error('Error saving journal:', error);
+                alert('Failed to save journal. Please try again later.');
+            }
+        });
     </script>
 </body>
 </html>
