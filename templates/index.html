@@ -3,9 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Emotion Music Recommender</title>
+    <title>Soul Sound</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <style>
+        /* Video background styles */
+        .video-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -2;
+            overflow: hidden;
+        }
+        
+        .video-background {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            min-width: 100%;
+            min-height: 100%;
+            width: auto;
+            height: auto;
+            transform: translate(-50%, -50%);
+            object-fit: cover;
+            transition: opacity 1s ease-in-out;
+        }
+        
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: -1;
+        }
+
+        .content-wrapper {
+            position: relative;
+            z-index: 1;
+            min-height: 100vh;
+        }
+
+        /* Ensure content is visible on top of video */
+        .container {
+            position: relative;
+            z-index: 1;
+        }
+
         .loading {
             display: none;
         }
@@ -52,6 +98,13 @@
         .song-list li:last-child {
             border-bottom: none;
         }
+        .song-list a {
+            color: #4f46e5;
+            text-decoration: none;
+        }
+        .song-list a:hover {
+            text-decoration: underline;
+        }
         .emotion-label {
             display: flex;
             justify-content: space-between;
@@ -97,83 +150,204 @@
         }
         
         .song-item {
-            padding: 8px 0;
-            border-bottom: 1px solid #eee;
+            background-color: white;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .song-info {
+            flex-grow: 1;
+        }
+        .song-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .action-btn {
+            padding: 0.5rem 1rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .play-btn {
+            background-color: #4f46e5;
+            color: white;
+        }
+        .play-btn:hover {
+            background-color: #4338ca;
+        }
+        .save-btn {
+            background-color: #10b981;
+            color: white;
+        }
+        .save-btn:hover {
+            background-color: #059669;
         }
         
-        .song-info {
+        .song-link {
             color: #4f46e5;
+            text-decoration: none;
+        }
+        
+        .song-link:hover {
+            text-decoration: underline;
+        }
+        
+        /* New emotion selection styles */
+        .emotion-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 4px;
+            margin-top: 1rem;
+        }
+        
+        .emotion-item {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px;
+            border-radius: 4px;
+            background-color: #f3f4f6;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid #e5e7eb;
+            min-height: 40px;
+            text-align: center;
+        }
+        
+        .emotion-item:hover {
+            background-color: #e5e7eb;
+            transform: translateY(-1px);
+        }
+        
+        .emotion-item.selected {
+            background-color: #4f46e5;
+            color: white;
+            border-color: #4338ca;
+        }
+        
+        .emotion-name {
+            font-size: 0.75rem;
             font-weight: 500;
+            text-align: center;
+        }
+        
+        /* Emotion-specific colors */
+        .joy { color: #FFD700; }
+        .sadness { color: #4682B4; }
+        .anger { color: #DC143C; }
+        .fear { color: #800080; }
+        .love { color: #FF69B4; }
+        .surprise { color: #FF8C00; }
+        .neutral { color: #808080; }
+        
+        .emotion-item.selected.joy { background-color: #FFD700; color: #000; }
+        .emotion-item.selected.sadness { background-color: #4682B4; }
+        .emotion-item.selected.anger { background-color: #DC143C; }
+        .emotion-item.selected.fear { background-color: #800080; }
+        .emotion-item.selected.love { background-color: #FF69B4; }
+        .emotion-item.selected.surprise { background-color: #FF8C00; }
+        .emotion-item.selected.neutral { background-color: #808080; }
+
+        select {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            background-size: 1.5em;
+            padding-right: 2.5rem;
+        }
+        select option {
+            padding: 0.5rem;
+            margin: 0.25rem 0;
+        }
+        select optgroup {
+            padding: 0.5rem;
         }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
-    <div class="container mx-auto px-4 py-8">
-        <div class="flex justify-between items-center mb-8">
-            <h1 class="text-4xl font-bold text-indigo-600">Emotion Music Recommender</h1>
-            <div class="flex gap-4">
-                <a href="/playlists" class="bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition duration-200">
-                    Manage Playlists
-                </a>
-                <a href="/logout" class="bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition duration-200">
-                    Logout
-                </a>
+<body class="bg-gray-100">
+    <!-- Video Background -->
+    <div class="video-container">
+        <video autoplay muted loop playsinline class="video-background" id="background-video">
+            <!-- Source will be set by JavaScript -->
+        </video>
+    </div>
+    <div class="overlay"></div>
+    
+    <div class="content-wrapper">
+        <header class="bg-indigo-600 text-white p-4">
+            <div class="container mx-auto flex justify-between items-center">
+                <h1 class="text-2xl font-bold">Soul Sound</h1>
+                <nav>
+                    <ul class="flex space-x-4">
+                        <li><a href="/playlists-page" class="hover:text-indigo-200">My Playlists</a></li>
+                        <li><a href="/logout" class="hover:text-indigo-200">Logout</a></li>
+                    </ul>
+                </nav>
             </div>
-        </div>
-
-        <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-6">
-            <div class="mb-6">
-                <label for="language-select" class="block text-gray-700 text-sm font-bold mb-2">
-                    Select Language for Song Recommendations:
-                </label>
-                <select
-                    id="language-select"
-                    class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4"
-                >
-                    <optgroup label="International Languages">
-                        <option value="en">English</option>
-                        <option value="es">Spanish</option>
-                        <option value="fr">French</option>
-                        <option value="de">German</option>
-                        <option value="it">Italian</option>
-                        <option value="pt">Portuguese</option>
-                        <option value="ru">Russian</option>
-                        <option value="ja">Japanese</option>
-                        <option value="ko">Korean</option>
-                        <option value="zh">Chinese</option>
-                    </optgroup>
-                    <optgroup label="Indian Languages">
-                        <option value="hi">Hindi</option>
-                        <option value="bn">Bengali</option>
-                        <option value="ta">Tamil</option>
-                        <option value="te">Telugu</option>
-                        <option value="kn">Kannada</option>
-                        <option value="ml">Malayalam</option>
-                        <option value="gu">Gujarati</option>
-                        <option value="pa">Punjabi</option>
-                        <option value="mr">Marathi</option>
-                        <option value="ur">Urdu</option>
-                    </optgroup>
-                </select>
-                <p class="text-sm text-gray-600 mb-4">Songs will be recommended in the selected language.</p>
-
-                <label for="journal-entry" class="block text-gray-700 text-sm font-bold mb-2">
-                    Write your journal entry:
-                </label>
-                <textarea
-                    id="journal-entry"
-                    class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    rows="6"
-                    placeholder="Write your thoughts here..."
-                ></textarea>
-            </div>
+        </header>
+        <div class="container mx-auto px-4 py-8">
+            <h1 class="text-2xl font-bold text-center mb-6 text-white">How are you feeling today?</h1>
             
-            <button
-                id="analyze-btn"
-                class="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition duration-200"
-            >
-                Analyze & Get Recommendations
-            </button>
+            <div class="max-w-4xl mx-auto bg-black/20 backdrop-blur-sm rounded-lg shadow-xl p-10 border border-white/20">
+                <div class="mb-4">
+                    <label for="language-select" class="block text-white text-sm font-semibold mb-2">
+                        Select Language for Song Recommendations:
+                    </label>
+                    <select
+                        id="language-select"
+                        class="w-full px-4 py-2 border-2 border-white/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50 bg-white/20 text-black text-sm transition-all duration-200 hover:border-white/50 backdrop-blur-sm appearance-none cursor-pointer"
+                    >
+                        <optgroup label="International Languages" class="text-white bg-black/80">
+                            <option value="en" class="text-black bg-white hover:bg-gray-100">English</option>
+                            <option value="es" class="text-black bg-white hover:bg-gray-100">Spanish</option>
+                            <option value="fr" class="text-black bg-white hover:bg-gray-100">French</option>
+                            <option value="de" class="text-black bg-white hover:bg-gray-100">German</option>
+                            <option value="it" class="text-black bg-white hover:bg-gray-100">Italian</option>
+                            <option value="pt" class="text-black bg-white hover:bg-gray-100">Portuguese</option>
+                            <option value="ru" class="text-black bg-white hover:bg-gray-100">Russian</option>
+                            <option value="ja" class="text-black bg-white hover:bg-gray-100">Japanese</option>
+                            <option value="ko" class="text-black bg-white hover:bg-gray-100">Korean</option>
+                            <option value="zh" class="text-black bg-white hover:bg-gray-100">Chinese</option>
+                        </optgroup>
+                        <optgroup label="Indian Languages" class="text-white bg-black/80">
+                            <option value="hi" class="text-black bg-white hover:bg-gray-100">Hindi</option>
+                            <option value="bn" class="text-black bg-white hover:bg-gray-100">Bengali</option>
+                            <option value="ta" class="text-black bg-white hover:bg-gray-100">Tamil</option>
+                            <option value="te" class="text-black bg-white hover:bg-gray-100">Telugu</option>
+                            <option value="kn" class="text-black bg-white hover:bg-gray-100">Kannada</option>
+                            <option value="ml" class="text-black bg-white hover:bg-gray-100">Malayalam</option>
+                            <option value="gu" class="text-black bg-white hover:bg-gray-100">Gujarati</option>
+                            <option value="pa" class="text-black bg-white hover:bg-gray-100">Punjabi</option>
+                            <option value="mr" class="text-black bg-white hover:bg-gray-100">Marathi</option>
+                            <option value="ur" class="text-black bg-white hover:bg-gray-100">Urdu</option>
+                        </optgroup>
+                    </select>
+                    <p class="text-xs text-white mt-1">Songs will be recommended in the selected language.</p>
+                </div>
+
+                <div class="mb-4">
+                    <label for="journal-entry" class="block text-white text-sm font-semibold mb-2">
+                        Enter your text for analysis:
+                    </label>
+                    <textarea
+                        id="journal-entry"
+                        class="w-full px-4 py-3 border-2 border-white/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50 bg-white/20 text-black text-sm transition-all duration-200 hover:border-white/50 backdrop-blur-sm min-h-[2000px] resize-none placeholder-white/50 leading-relaxed"
+                        placeholder="Type your thoughts, feelings, or journal entry here..."
+                    ></textarea>
+                </div>
+                
+                <button
+                    id="analyze-btn"
+                    class="w-full bg-indigo-600 text-white py-2 px-6 rounded-lg hover:bg-indigo-700 transition duration-200 text-sm font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                >
+                    Analyze
+                </button>
+            </div>
             
             <div id="loading" class="loading mt-4 text-center">
                 <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-600 border-t-transparent"></div>
@@ -182,19 +356,87 @@
             
             <div id="results" class="mt-6 hidden">
                 <div class="mb-6">
-                    <h2 class="text-xl font-semibold mb-2">Detected Emotions:</h2>
-                    <div id="emotions-container" class="space-y-2"></div>
+                    <h2 class="text-xl font-semibold mb-2 text-white">Detected Emotions:</h2>
+                    <div id="emotions-container" class="emotion-grid"></div>
                 </div>
                 
-                <div>
-                    <h2 class="text-xl font-semibold mb-4">Recommended Songs in <span id="selected-language"></span>:</h2>
+                <div id="mood-selection-container" class="mb-6 hidden">
+                    <h2 class="text-xl font-semibold mb-2 text-white">Selected Moods:</h2>
+                    <div id="selected-moods" class="emotion-grid"></div>
+                    <button
+                        id="get-recommendations-btn"
+                        class="w-full mt-4 bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition duration-200"
+                    >
+                        Get Recommendations
+                    </button>
+                </div>
+                
+                <div id="recommendations-container" class="hidden">
+                    <h2 class="text-xl font-semibold mb-4 text-white">Recommended Songs in <span id="selected-language" class="text-white"></span>:</h2>
                     <div id="recommendations" class="space-y-4"></div>
+                    <button
+                        id="shuffle-btn"
+                        class="w-full mt-4 bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition duration-200 flex items-center justify-center"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Shuffle Songs
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
+        // List of available videos
+        const videos = [
+            '/static/videos/background.mp4',
+            '/static/videos/background1.mp4',
+            '/static/videos/background2.mp4',
+            '/static/videos/background3.mp4'
+        ];
+
+        // Function to get a random video
+        function getRandomVideo() {
+            const randomIndex = Math.floor(Math.random() * videos.length);
+            return videos[randomIndex];
+        }
+
+        // Function to change video
+        function changeVideo() {
+            const video = document.getElementById('background-video');
+            const newVideo = getRandomVideo();
+            
+            // Fade out current video
+            video.style.opacity = '0';
+            
+            // Wait for fade out
+            setTimeout(() => {
+                video.src = newVideo;
+                video.load();
+                video.play().catch(error => {
+                    console.error('Error playing video:', error);
+                });
+                
+                // Fade in new video
+                video.style.opacity = '1';
+            }, 1000);
+        }
+
+        // Initialize video
+        document.addEventListener('DOMContentLoaded', () => {
+            const video = document.getElementById('background-video');
+            video.src = getRandomVideo();
+            video.load();
+            video.play().catch(error => {
+                console.error('Error playing video:', error);
+            });
+            
+            // Change video every 30 seconds
+            setInterval(changeVideo, 30000);
+        });
+
         document.getElementById('analyze-btn').addEventListener('click', async () => {
             const text = document.getElementById('journal-entry').value.trim();
             const languageSelect = document.getElementById('language-select');
@@ -202,13 +444,15 @@
             const languageName = languageSelect.options[languageSelect.selectedIndex].text;
             
             if (!text) {
-                alert('Please enter some text first!');
+                alert('Please enter some text to analyze!');
                 return;
             }
 
             // Show loading
             document.getElementById('loading').classList.add('active');
             document.getElementById('results').classList.add('hidden');
+            document.getElementById('mood-selection-container').classList.add('hidden');
+            document.getElementById('recommendations-container').classList.add('hidden');
 
             try {
                 const response = await fetch('/analyze', {
@@ -216,121 +460,49 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ text, language }),
+                    body: JSON.stringify({ 
+                        text, 
+                        language
+                    }),
                 });
 
                 const data = await response.json();
                 
-                // Store keywords for general recommendations
-                currentKeywords = data.keywords;
-                
-                // Cache the analysis results
-                const analysisResults = {
-                    emotions: data.emotions,
-                    emotion_recommendations: data.emotion_recommendations,
-                    general_recommendations: data.general_recommendations,
-                    keywords: data.keywords,
-                    language: language,
-                    languageName: languageName,
-                    text: text,
-                    timestamp: new Date().getTime()
-                };
-                sessionStorage.setItem('lastAnalysis', JSON.stringify(analysisResults));
-                
                 // Update emotions display
                 const emotionsContainer = document.getElementById('emotions-container');
-                console.log("Emotions data:", data.emotions);
+                const selectedMoodsContainer = document.getElementById('selected-moods');
                 
                 if (data.emotions && data.emotions.length > 0) {
-                    emotionsContainer.innerHTML = data.emotions.map(emotion => `
-                        <div class="emotion-card">
-                          <div class="emotion-header ${emotion.emotion.toLowerCase()}">
-                            <div class="emotion-label">
-                              <h3 class="text-lg font-semibold">${emotion.emotion.charAt(0).toUpperCase() + emotion.emotion.slice(1)}</h3>
-                              <span class="confidence-value">${Math.round(emotion.confidence * 100)}%</span>
-                            </div>
-                            <div class="confidence-bar">
-                              <div class="confidence-level" style="width: ${emotion.confidence * 100}%"></div>
-                            </div>
-                          </div>
-                          <div class="emotion-content">
-                            ${emotion.similar_emotions && emotion.similar_emotions.length > 0 ? 
-                              `<p class="text-sm text-gray-600 mb-3">Related emotions: ${emotion.similar_emotions.map(e => 
-                                e.charAt(0).toUpperCase() + e.slice(1)).join(', ')}</p>` : 
-                              ''}
-                            <h4 class="font-semibold mb-2">Recommended Songs:</h4>
-                            <ul class="song-list" id="songs-${emotion.emotion}">
-                              ${data.emotion_recommendations[emotion.emotion] ? 
-                                data.emotion_recommendations[emotion.emotion].map(song => `
-                                  <li class="song-item">
-                                    <div class="flex justify-between items-center">
-                                      <span class="song-info">${song.name} - ${song.artist}</span>
-                                      <div class="flex gap-2">
-                                        <a href="${song.url}" target="_blank" 
-                                           class="bg-indigo-600 text-white py-1 px-3 rounded hover:bg-indigo-700 transition duration-200">
-                                          Listen
-                                        </a>
-                                        <button class="bg-green-600 text-white py-1 px-3 rounded hover:bg-green-700 transition duration-200" 
-                                                onclick="showPlaylistSelector('${song.name}', '${song.artist}', '${song.url}')">
-                                          Add to Playlist
-                                        </button>
-                                      </div>
-                                    </div>
-                                  </li>
-                                `).join('') : 
-                                '<li class="text-gray-500">No recommendations available</li>'
-                              }
-                            </ul>
-                            <button class="shuffle-btn" data-emotion="${emotion.emotion}" onclick="shuffleSongs('${emotion.emotion}', false)">
-                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                              </svg>
-                              Shuffle Songs
-                            </button>
-                          </div>
-                        </div>
-                      `).join('');
+                    // Clear previous content
+                    emotionsContainer.innerHTML = '';
+                    selectedMoodsContainer.innerHTML = '';
+                    
+                    // Add emotions to display
+                    data.emotions.forEach(emotion => {
+                        // Add to emotions display
+                        const emotionItem = document.createElement('div');
+                        emotionItem.className = `emotion-item ${emotion.emotion.toLowerCase()}`;
+                        emotionItem.dataset.emotion = emotion.emotion;
+                        
+                        const name = document.createElement('div');
+                        name.className = 'emotion-name';
+                        name.textContent = emotion.emotion.charAt(0).toUpperCase() + emotion.emotion.slice(1);
+                        
+                        emotionItem.appendChild(name);
+                        
+                        // Add click event listener
+                        emotionItem.addEventListener('click', () => {
+                            emotionItem.classList.toggle('selected');
+                            updateSelectedMoods();
+                        });
+                        
+                        emotionsContainer.appendChild(emotionItem);
+                    });
+                    
+                    // Show mood selection container
+                    document.getElementById('mood-selection-container').classList.remove('hidden');
                 } else {
-                    emotionsContainer.innerHTML = '<p class="text-gray-500 text-center py-4">No emotions detected in the text.</p>';
-                }
-                
-                // Update recommendations display
-                const recommendationsContainer = document.getElementById('recommendations');
-                if (data.general_recommendations && data.general_recommendations.length > 0) {
-                    recommendationsContainer.innerHTML = `
-                        <div class="emotion-card">
-                          <div class="emotion-content">
-                            <h4 class="font-semibold mb-3">General Recommendations</h4>
-                            <ul class="song-list" id="general-songs">
-                              ${data.general_recommendations.map(song => `
-                                <li class="song-item">
-                                  <div class="flex justify-between items-center">
-                                    <span class="song-info">${song.name} - ${song.artist}</span>
-                                    <div class="flex gap-2">
-                                      <a href="${song.url}" target="_blank" 
-                                         class="bg-indigo-600 text-white py-1 px-3 rounded hover:bg-indigo-700 transition duration-200">
-                                        Listen
-                                      </a>
-                                      <button class="bg-green-600 text-white py-1 px-3 rounded hover:bg-green-700 transition duration-200" 
-                                              onclick="showPlaylistSelector('${song.name}', '${song.artist}', '${song.url}')">
-                                        Add to Playlist
-                                      </button>
-                                    </div>
-                                  </div>
-                                </li>
-                              `).join('')}
-                            </ul>
-                            <button class="shuffle-btn" onclick="shuffleSongs('', true)">
-                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                              </svg>
-                              Shuffle Songs
-                            </button>
-                          </div>
-                        </div>
-                    `;
-                } else {
-                    recommendationsContainer.innerHTML = '<p class="text-gray-500 text-center py-4">No general recommendations available.</p>';
+                    emotionsContainer.innerHTML = '<p class="text-gray-500 text-center py-4">No emotions detected.</p>';
                 }
 
                 // Update selected language display
@@ -345,273 +517,228 @@
             }
         });
 
-        // Function to shuffle songs
-        async function shuffleSongs(emotion, isGeneral = false) {
-            const button = isGeneral ? 
-                document.querySelector('button[onclick="shuffleSongs(\'\', true)"]') :
-                document.querySelector(`button[data-emotion="${emotion}"]`);
-            const language = document.getElementById('language-select').value;
+        // Add event listener for get recommendations button
+        document.getElementById('get-recommendations-btn').addEventListener('click', async () => {
+            const languageSelect = document.getElementById('language-select');
+            const language = languageSelect.value;
             
-            // Show loading state
-            button.classList.add('loading');
-            button.disabled = true;
+            // Get selected moods
+            const selectedMoods = Array.from(document.querySelectorAll('.emotion-item.selected'))
+                .map(item => item.dataset.emotion);
             
+            if (selectedMoods.length === 0) {
+                alert('Please select at least one mood!');
+                return;
+            }
+
+            // Show loading
+            document.getElementById('loading').classList.add('active');
+            document.getElementById('recommendations-container').classList.add('hidden');
+
+            try {
+                const response = await fetch('/get-recommendations', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        selected_moods: selectedMoods,
+                        language
+                    }),
+                });
+
+                const data = await response.json();
+                
+                // Update recommendations display
+                const recommendationsContainer = document.getElementById('recommendations');
+                
+                if (data.recommendations && data.recommendations.length > 0) {
+                    recommendationsContainer.innerHTML = '';  // Clear existing content
+                    
+                    // Create elements for each song
+                    data.recommendations.forEach(song => {
+                        const songDiv = document.createElement('div');
+                        songDiv.className = 'song-item';
+                        
+                        songDiv.innerHTML = `
+                            <div class="song-info">
+                                <div class="font-medium">${song.name}</div>
+                                <div class="text-sm text-gray-600">${song.artist}</div>
+                            </div>
+                            <div class="song-actions">
+                                <a href="${song.url}" target="_blank" class="action-btn play-btn">
+                                    Play
+                                </a>
+                                <button class="action-btn save-btn">
+                                    Save to Playlist
+                                </button>
+                            </div>
+                        `;
+                        
+                        // Add click handler to save button
+                        const saveButton = songDiv.querySelector('.save-btn');
+                        saveButton.addEventListener('click', () => saveToPlaylist(song));
+                        
+                        recommendationsContainer.appendChild(songDiv);
+                    });
+                } else {
+                    recommendationsContainer.innerHTML = '<p class="text-gray-500 text-center py-4">No recommendations available.</p>';
+                }
+
+                // Show recommendations container
+                document.getElementById('recommendations-container').classList.remove('hidden');
+            } catch (error) {
+                console.error('Error getting recommendations:', error);
+                alert('An error occurred while getting recommendations. Please try again later.');
+            } finally {
+                // Hide loading
+                document.getElementById('loading').classList.remove('active');
+            }
+        });
+
+        // Add event listener for shuffle button
+        document.getElementById('shuffle-btn').addEventListener('click', async () => {
+            const languageSelect = document.getElementById('language-select');
+            const language = languageSelect.value;
+            
+            // Get selected moods
+            const selectedMoods = Array.from(document.querySelectorAll('.emotion-item.selected'))
+                .map(item => item.dataset.emotion);
+            
+            if (selectedMoods.length === 0) {
+                alert('Please select at least one mood!');
+                return;
+            }
+
+            // Show loading
+            document.getElementById('loading').classList.add('active');
+            document.getElementById('shuffle-btn').classList.add('loading');
+
             try {
                 const response = await fetch('/shuffle', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({
-                        emotion,
-                        language,
-                        is_general: isGeneral,
-                        keywords: isGeneral ? window.currentKeywords : undefined
+                    body: JSON.stringify({ 
+                        selected_moods: selectedMoods,
+                        language
                     }),
                 });
 
                 const data = await response.json();
                 
-                // Get cached analysis results
-                const cachedAnalysis = JSON.parse(sessionStorage.getItem('lastAnalysis') || '{}');
+                // Update recommendations display
+                const recommendationsContainer = document.getElementById('recommendations');
                 
-                if (isGeneral) {
-                    // Update general recommendations
-                    const generalList = document.getElementById('general-songs');
-                    generalList.innerHTML = data.recommendations.map(song => `
-                        <li class="song-item">
-                          <div class="flex justify-between items-center">
-                            <span class="song-info">${song.name} - ${song.artist}</span>
-                            <div class="flex gap-2">
-                              <a href="${song.url}" target="_blank" 
-                                 class="bg-indigo-600 text-white py-1 px-3 rounded hover:bg-indigo-700 transition duration-200">
-                                Listen
-                              </a>
-                              <button class="bg-green-600 text-white py-1 px-3 rounded hover:bg-green-700 transition duration-200" 
-                                      onclick="showPlaylistSelector('${song.name}', '${song.artist}', '${song.url}')">
-                                Add to Playlist
-                              </button>
-                            </div>
-                          </div>
-                        </li>
-                    `).join('');
+                if (data.recommendations && data.recommendations.length > 0) {
+                    recommendationsContainer.innerHTML = '';  // Clear existing content
                     
-                    // Update cached data
-                    if (cachedAnalysis.general_recommendations) {
-                        cachedAnalysis.general_recommendations = data.recommendations;
-                        sessionStorage.setItem('lastAnalysis', JSON.stringify(cachedAnalysis));
-                    }
+                    // Create elements for each song
+                    data.recommendations.forEach(song => {
+                        const songDiv = document.createElement('div');
+                        songDiv.className = 'song-item';
+                        
+                        songDiv.innerHTML = `
+                            <div class="song-info">
+                                <div class="font-medium">${song.name}</div>
+                                <div class="text-sm text-gray-600">${song.artist}</div>
+                            </div>
+                            <div class="song-actions">
+                                <a href="${song.url}" target="_blank" class="action-btn play-btn">
+                                    Play
+                                </a>
+                                <button class="action-btn save-btn">
+                                    Save to Playlist
+                                </button>
+                            </div>
+                        `;
+                        
+                        // Add click handler to save button
+                        const saveButton = songDiv.querySelector('.save-btn');
+                        saveButton.addEventListener('click', () => saveToPlaylist(song));
+                        
+                        recommendationsContainer.appendChild(songDiv);
+                    });
                 } else {
-                    // Update emotion-specific recommendations
-                    const songList = document.getElementById(`songs-${emotion}`);
-                    songList.innerHTML = data.recommendations.map(song => `
-                        <li class="song-item">
-                          <div class="flex justify-between items-center">
-                            <span class="song-info">${song.name} - ${song.artist}</span>
-                            <div class="flex gap-2">
-                              <a href="${song.url}" target="_blank" 
-                                 class="bg-indigo-600 text-white py-1 px-3 rounded hover:bg-indigo-700 transition duration-200">
-                                Listen
-                              </a>
-                              <button class="bg-green-600 text-white py-1 px-3 rounded hover:bg-green-700 transition duration-200" 
-                                      onclick="showPlaylistSelector('${song.name}', '${song.artist}', '${song.url}')">
-                                Add to Playlist
-                              </button>
-                            </div>
-                          </div>
-                        </li>
-                    `).join('');
-                    
-                    // Update cached data
-                    if (cachedAnalysis.emotion_recommendations && cachedAnalysis.emotion_recommendations[emotion]) {
-                        cachedAnalysis.emotion_recommendations[emotion] = data.recommendations;
-                        sessionStorage.setItem('lastAnalysis', JSON.stringify(cachedAnalysis));
-                    }
+                    recommendationsContainer.innerHTML = '<p class="text-gray-500 text-center py-4">No recommendations available.</p>';
                 }
             } catch (error) {
                 console.error('Error shuffling songs:', error);
-                alert('Failed to shuffle songs. Please try again.');
+                alert('An error occurred while shuffling songs. Please try again later.');
             } finally {
-                // Remove loading state
-                button.classList.remove('loading');
-                button.disabled = false;
+                // Hide loading
+                document.getElementById('loading').classList.remove('active');
+                document.getElementById('shuffle-btn').classList.remove('loading');
             }
+        });
+
+        function getPopularityLabel(popularity) {
+            if (popularity > 75) return 'Very Popular';
+            if (popularity > 50) return 'Popular';
+            if (popularity > 25) return 'Moderate';
+            return 'Underrated';
         }
 
         // Store current keywords for general recommendations
         let currentKeywords = [];
 
-        // Playlist functionality
-        let currentPlaylists = [];
-
-        // Load playlists
-        async function loadPlaylists() {
-            try {
-                // First try to load from sessionStorage
-                const cachedPlaylists = sessionStorage.getItem('playlists');
-                if (cachedPlaylists) {
-                    currentPlaylists = JSON.parse(cachedPlaylists);
-                }
-
-                // Then fetch from server to ensure we have the latest data
-                const response = await fetch('/playlists');
-                const playlists = await response.json();
-                currentPlaylists = playlists;
+        function displayEmotions(emotions) {
+            const container = document.getElementById('emotions-container');
+            container.innerHTML = '';
+            
+            emotions.forEach(emotion => {
+                const emotionItem = document.createElement('div');
+                emotionItem.className = `emotion-item ${emotion.emotion.toLowerCase()}`;
+                emotionItem.dataset.emotion = emotion.emotion;
                 
-                // Update sessionStorage with latest data
-                sessionStorage.setItem('playlists', JSON.stringify(playlists));
-            } catch (error) {
-                console.error('Error loading playlists:', error);
-                // If fetch fails, try to use cached data
-                if (!currentPlaylists.length) {
-                    const cachedPlaylists = sessionStorage.getItem('playlists');
-                    if (cachedPlaylists) {
-                        currentPlaylists = JSON.parse(cachedPlaylists);
-                    }
-                }
-            }
+                const name = document.createElement('div');
+                name.className = 'emotion-name';
+                name.textContent = emotion.emotion.charAt(0).toUpperCase() + emotion.emotion.slice(1);
+                
+                emotionItem.appendChild(name);
+                
+                // Add click event listener
+                emotionItem.addEventListener('click', () => {
+                    emotionItem.classList.toggle('selected');
+                    updateSelectedMoods();
+                });
+                
+                container.appendChild(emotionItem);
+            });
+            
+            document.getElementById('mood-selection-container').classList.remove('hidden');
+        }
+        
+        function updateSelectedMoods() {
+            const selectedMoodsContainer = document.getElementById('selected-moods');
+            selectedMoodsContainer.innerHTML = '';
+            
+            const selectedItems = document.querySelectorAll('.emotion-item.selected');
+            selectedItems.forEach(item => {
+                const moodItem = document.createElement('div');
+                moodItem.className = `emotion-item ${item.dataset.emotion.toLowerCase()} selected`;
+                
+                const name = document.createElement('div');
+                name.className = 'emotion-name';
+                name.textContent = item.dataset.emotion.charAt(0).toUpperCase() + item.dataset.emotion.slice(1);
+                
+                moodItem.appendChild(name);
+                selectedMoodsContainer.appendChild(moodItem);
+            });
         }
 
-        // Show playlist selector
-        function showPlaylistSelector(songName, artist, url) {
-            // Store the song data in sessionStorage
-            const songData = {
-                name: songName,
-                artist: artist,
-                url: url,
-                id: `${songName}-${artist}`.replace(/\s+/g, '-').toLowerCase()
-            };
-            sessionStorage.setItem('pendingSong', JSON.stringify(songData));
+        function saveToPlaylist(song) {
+            // Ensure the song has an id field
+            if (!song.id) {
+                song.id = Date.now().toString(); // Generate a temporary ID if none exists
+            }
             
+            // Store the song in sessionStorage to be added to a playlist
+            sessionStorage.setItem('pendingSong', JSON.stringify(song));
             // Redirect to playlists page
-            window.location.href = '/playlists';
+            window.location.href = '/playlists-page';
         }
-
-        // Load playlists when the page loads
-        document.addEventListener('DOMContentLoaded', () => {
-            loadPlaylists();
-            
-            // Check if we have cached analysis results
-            const cachedAnalysis = JSON.parse(sessionStorage.getItem('lastAnalysis') || '{}');
-            if (cachedAnalysis && cachedAnalysis.emotions && cachedAnalysis.emotions.length > 0) {
-                // Set the language select to match the cached language
-                if (cachedAnalysis.language) {
-                    const languageSelect = document.getElementById('language-select');
-                    for (let i = 0; i < languageSelect.options.length; i++) {
-                        if (languageSelect.options[i].value === cachedAnalysis.language) {
-                            languageSelect.selectedIndex = i;
-                            break;
-                        }
-                    }
-                }
-                
-                // Set the journal entry text
-                if (cachedAnalysis.text) {
-                    document.getElementById('journal-entry').value = cachedAnalysis.text;
-                }
-                
-                // Update the emotions display
-                const emotionsContainer = document.getElementById('emotions-container');
-                if (cachedAnalysis.emotions && cachedAnalysis.emotions.length > 0) {
-                    emotionsContainer.innerHTML = cachedAnalysis.emotions.map(emotion => `
-                        <div class="emotion-card">
-                          <div class="emotion-header ${emotion.emotion.toLowerCase()}">
-                            <div class="emotion-label">
-                              <h3 class="text-lg font-semibold">${emotion.emotion.charAt(0).toUpperCase() + emotion.emotion.slice(1)}</h3>
-                              <span class="confidence-value">${Math.round(emotion.confidence * 100)}%</span>
-                            </div>
-                            <div class="confidence-bar">
-                              <div class="confidence-level" style="width: ${emotion.confidence * 100}%"></div>
-                            </div>
-                          </div>
-                          <div class="emotion-content">
-                            ${emotion.similar_emotions && emotion.similar_emotions.length > 0 ? 
-                              `<p class="text-sm text-gray-600 mb-3">Related emotions: ${emotion.similar_emotions.map(e => 
-                                e.charAt(0).toUpperCase() + e.slice(1)).join(', ')}</p>` : 
-                              ''}
-                            <h4 class="font-semibold mb-2">Recommended Songs:</h4>
-                            <ul class="song-list" id="songs-${emotion.emotion}">
-                              ${cachedAnalysis.emotion_recommendations && cachedAnalysis.emotion_recommendations[emotion.emotion] ? 
-                                cachedAnalysis.emotion_recommendations[emotion.emotion].map(song => `
-                                  <li class="song-item">
-                                    <div class="flex justify-between items-center">
-                                      <span class="song-info">${song.name} - ${song.artist}</span>
-                                      <div class="flex gap-2">
-                                        <a href="${song.url}" target="_blank" 
-                                           class="bg-indigo-600 text-white py-1 px-3 rounded hover:bg-indigo-700 transition duration-200">
-                                          Listen
-                                        </a>
-                                        <button class="bg-green-600 text-white py-1 px-3 rounded hover:bg-green-700 transition duration-200" 
-                                                onclick="showPlaylistSelector('${song.name}', '${song.artist}', '${song.url}')">
-                                          Add to Playlist
-                                        </button>
-                                      </div>
-                                    </div>
-                                  </li>
-                                `).join('') : 
-                                '<li class="text-gray-500">No recommendations available</li>'
-                              }
-                            </ul>
-                            <button class="shuffle-btn" data-emotion="${emotion.emotion}" onclick="shuffleSongs('${emotion.emotion}', false)">
-                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                              </svg>
-                              Shuffle Songs
-                            </button>
-                          </div>
-                        </div>
-                      `).join('');
-                }
-                
-                // Update the recommendations display
-                const recommendationsContainer = document.getElementById('recommendations');
-                if (cachedAnalysis.general_recommendations && cachedAnalysis.general_recommendations.length > 0) {
-                    recommendationsContainer.innerHTML = `
-                        <div class="emotion-card">
-                          <div class="emotion-content">
-                            <h4 class="font-semibold mb-3">General Recommendations</h4>
-                            <ul class="song-list" id="general-songs">
-                              ${cachedAnalysis.general_recommendations.map(song => `
-                                <li class="song-item">
-                                  <div class="flex justify-between items-center">
-                                    <span class="song-info">${song.name} - ${song.artist}</span>
-                                    <div class="flex gap-2">
-                                      <a href="${song.url}" target="_blank" 
-                                         class="bg-indigo-600 text-white py-1 px-3 rounded hover:bg-indigo-700 transition duration-200">
-                                        Listen
-                                      </a>
-                                      <button class="bg-green-600 text-white py-1 px-3 rounded hover:bg-green-700 transition duration-200" 
-                                              onclick="showPlaylistSelector('${song.name}', '${song.artist}', '${song.url}')">
-                                        Add to Playlist
-                                      </button>
-                                    </div>
-                                  </div>
-                                </li>
-                              `).join('')}
-                            </ul>
-                            <button class="shuffle-btn" onclick="shuffleSongs('', true)">
-                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                              </svg>
-                              Shuffle Songs
-                            </button>
-                          </div>
-                        </div>
-                    `;
-                }
-                
-                // Update the selected language display
-                if (cachedAnalysis.languageName) {
-                    document.getElementById('selected-language').textContent = cachedAnalysis.languageName;
-                }
-                
-                // Show the results section
-                document.getElementById('results').classList.remove('hidden');
-                
-                // Store keywords for general recommendations
-                currentKeywords = cachedAnalysis.keywords || [];
-            }
-        });
     </script>
 </body>
 </html>

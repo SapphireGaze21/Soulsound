@@ -5,7 +5,6 @@ import numpy as np
 from nltk.sentiment import SentimentIntensityAnalyzer
 import nltk
 from collections import defaultdict
-import re
 
 class EmotionAnalyzer:
     def __init__(self):
@@ -34,30 +33,215 @@ class EmotionAnalyzer:
         # Initialize NLTK sentiment analyzer
         nltk.download('vader_lexicon')
         self.sia = SentimentIntensityAnalyzer()
+
+        # Activity detection keywords
+        self.activity_keywords = {
+            'gym': ['gym', 'workout', 'exercise', 'training', 'fitness', 'lifting', 'weights'],
+            'coffee': ['coffee', 'caffeine', 'espresso', 'latte', 'cappuccino', 'brew'],
+            'running': ['running', 'jogging', 'sprint', 'marathon', 'track'],
+            'yoga': ['yoga', 'meditation', 'stretching', 'mindfulness'],
+            'swimming': ['swimming', 'pool', 'dive', 'swim'],
+            'cycling': ['cycling', 'bike', 'bicycle', 'ride'],
+            'hiking': ['hiking', 'trail', 'mountain', 'walk'],
+            'party': ['party', 'celebration', 'festival', 'gathering'],
+            'dinner': ['dinner', 'meal', 'restaurant', 'food'],
+            'meeting': ['meeting', 'conference', 'presentation', 'discussion'],
+            'conversation': ['conversation', 'talk', 'chat', 'discussion'],
+            'date': ['date', 'romantic', 'dinner', 'movie'],
+            'family': ['family', 'parents', 'siblings', 'relatives'],
+            'friends': ['friends', 'buddies', 'pals', 'mates'],
+            'work': ['work', 'office', 'job', 'career'],
+            'study': ['study', 'learning', 'education', 'school'],
+            'reading': ['reading', 'book', 'novel', 'article'],
+            'writing': ['writing', 'author', 'compose', 'draft'],
+            'coding': ['coding', 'programming', 'develop', 'code'],
+            'project': ['project', 'assignment', 'task', 'work'],
+            'movie': ['movie', 'film', 'cinema', 'theater'],
+            'music': ['music', 'song', 'tune', 'melody'],
+            'game': ['game', 'play', 'gaming', 'sport'],
+            'shopping': ['shopping', 'buy', 'purchase', 'mall'],
+            'travel': ['travel', 'trip', 'journey', 'vacation'],
+            'vacation': ['vacation', 'holiday', 'break', 'leave'],
+            'holiday': ['holiday', 'festival', 'celebration', 'break'],
+            'relaxation': ['relaxation', 'rest', 'chill', 'unwind'],
+            'mindfulness': ['mindfulness', 'meditation', 'awareness', 'presence'],
+            'breathing': ['breathing', 'breath', 'inhale', 'exhale'],
+            'spa': ['spa', 'massage', 'treatment', 'therapy'],
+            'massage': ['massage', 'therapy', 'relax', 'treatment'],
+            'breakfast': ['breakfast', 'morning', 'meal', 'eat'],
+            'lunch': ['lunch', 'noon', 'meal', 'eat'],
+            'dinner': ['dinner', 'evening', 'meal', 'eat'],
+            'shower': ['shower', 'bath', 'clean', 'wash'],
+            'sleep': ['sleep', 'bed', 'rest', 'nap']
+        }
+
+        # Activity-based emotion mappings
+        self.activity_emotions = {
+            'gym': ['motivated', 'energetic', 'excited', 'determined', 'strong', 'focused'],
+            'coffee': ['energetic', 'focused', 'awake', 'alert', 'productive'],
+            'running': ['energetic', 'accomplished', 'determined', 'motivated', 'strong'],
+            'yoga': ['calm', 'peaceful', 'serene', 'focused', 'mindful'],
+            'swimming': ['refreshed', 'energetic', 'accomplished', 'relaxed'],
+            'cycling': ['energetic', 'accomplished', 'determined', 'free'],
+            'hiking': ['energetic', 'accomplished', 'awe', 'connected'],
+            'party': ['happy', 'excited', 'energetic', 'social', 'joyful'],
+            'dinner': ['content', 'happy', 'social', 'satisfied'],
+            'meeting': ['focused', 'productive', 'attentive', 'engaged'],
+            'conversation': ['engaged', 'interested', 'connected', 'social'],
+            'date': ['excited', 'happy', 'romantic', 'nervous'],
+            'family': ['happy', 'content', 'connected', 'loved'],
+            'friends': ['happy', 'excited', 'connected', 'social'],
+            'work': ['focused', 'productive', 'determined', 'motivated'],
+            'study': ['focused', 'determined', 'attentive', 'motivated'],
+            'reading': ['focused', 'calm', 'engaged', 'interested'],
+            'writing': ['focused', 'creative', 'engaged', 'productive'],
+            'coding': ['focused', 'productive', 'determined', 'creative'],
+            'project': ['focused', 'productive', 'determined', 'motivated'],
+            'movie': ['relaxed', 'entertained', 'engaged', 'interested'],
+            'music': ['relaxed', 'happy', 'moved', 'emotional'],
+            'game': ['excited', 'engaged', 'competitive', 'focused'],
+            'shopping': ['excited', 'happy', 'satisfied', 'energetic'],
+            'travel': ['excited', 'adventurous', 'awe', 'curious'],
+            'vacation': ['relaxed', 'happy', 'content', 'excited'],
+            'holiday': ['happy', 'excited', 'content', 'joyful'],
+            'relaxation': ['calm', 'peaceful', 'serene', 'relaxed'],
+            'mindfulness': ['calm', 'focused', 'present', 'aware'],
+            'breathing': ['calm', 'focused', 'present', 'relaxed'],
+            'spa': ['relaxed', 'calm', 'peaceful', 'serene'],
+            'massage': ['relaxed', 'calm', 'peaceful', 'serene'],
+            'breakfast': ['energetic', 'fresh', 'optimistic', 'ready'],
+            'lunch': ['satisfied', 'content', 'refreshed', 'energetic'],
+            'dinner': ['satisfied', 'content', 'relaxed', 'social'],
+            'shower': ['refreshed', 'clean', 'energetic', 'awake'],
+            'sleep': ['tired', 'calm', 'peaceful', 'relaxed']
+        }
         
         # Emotion categories with expanded definitions
         self.emotion_categories = {
-            'positive': ['joy', 'love', 'hope', 'gratitude', 'pride', 'contentment', 'excitement', 
+    'positive': [
+        # Original emotions
+        'joy', 'love', 'hope', 'gratitude', 'pride', 'contentment', 'excitement',
                         'relief', 'curiosity', 'inspiration', 'optimism', 'trust', 'wonder',
                         'amusement', 'awe', 'desire', 'empathy', 'enthusiasm', 'gratitude',
                         'happiness', 'interest', 'joy', 'love', 'optimism', 'pride', 'relief',
-                        'satisfaction', 'serenity', 'surprise', 'trust'],
-            'negative': ['sadness', 'anger', 'fear', 'disappointment', 'confusion', 
-                        'anxiety', 'boredom', 'embarrassment', 'envy', 'guilt', 'loneliness', 
-                        'pessimism', 'regret', 'shame', 'annoyance', 'anxiety', 'boredom',
-                        'confusion', 'disappointment', 'disgust', 'embarrassment', 'envy',
-                        'fear', 'frustration', 'guilt', 'hate', 'irritation', 'jealousy',
-                        'loneliness', 'nervousness', 'pessimism', 'regret', 'sadness',
-                        'shame', 'stress', 'tension', 'worry'],
-            'neutral': ['neutral', 'contemplation', 'nostalgia', 'determination', 'surprise',
-                       'anticipation', 'attention', 'calmness', 'concentration', 'curiosity',
-                       'determination', 'interest', 'meditation', 'neutral', 'observation',
-                       'patience', 'reflection', 'serenity', 'thoughtfulness']
-        }
+        'satisfaction', 'serenity', 'surprise', 'trust',
+
+        # Activities
+        'gym', 'running', 'workout', 'exercise', 'swimming', 'cycling', 'hiking',
+        'party', 'dinner', 'meeting', 'conversation', 'date', 'family', 'friends',
+        'work', 'study', 'reading', 'writing', 'coding', 'project',
+        'movie', 'music', 'game', 'shopping', 'travel', 'vacation', 'holiday',
+        'coffee', 'breakfast', 'lunch', 'shower',
+
+        # Temporal contexts
+        'morning', 'afternoon', 'weekend', 'monday', 'friday',
+
+        # Metaphorical expressions
+        'on top of the world', 'cloud nine', 'over the moon', 'heart of gold',
+        'walking on air',
+
+        # Phrases
+        "can't stop smiling", 'feeling pumped', 'making me feel alive', 'in the zone',
+        'on cloud nine', 'feeling blessed', 'feeling grateful', 'feeling accomplished',
+        'feeling proud', 'feeling confident', 'feeling loved', 'feeling connected',
+        'feeling inspired', 'feeling motivated', 'feeling refreshed', 'feeling energized',
+        'rollercoaster ride'
+    ],
+
+    'negative': [
+        # Original emotions
+        'sadness', 'anger', 'fear', 'disappointment', 'confusion', 'anxiety', 'boredom',
+        'embarrassment', 'envy', 'guilt', 'loneliness', 'pessimism', 'regret',
+        'shame', 'annoyance', 'disgust', 'frustration', 'hate', 'irritation',
+        'jealousy', 'nervousness', 'stress', 'tension', 'worry',
+
+        # Metaphorical expressions
+        'down in the dumps', 'heart of stone', 'feeling blue', 'seeing red',
+        'green with envy', 'white as a sheet',
+
+        # Phrases
+        'keeping me up', 'on edge', 'in a funk', 'in a rut', 'under the weather',
+        'feeling overwhelmed', 'feeling insecure', 'feeling lonely',
+        'feeling disconnected', 'feeling unmotivated', 'feeling exhausted',
+        'feeling drained', 'feeling stressed', 'feeling anxious', 'feeling worried',
+        'feeling tense', 'feeling distracted', 'feeling scattered',
+        'feeling disengaged', 'feeling uninterested', 'feeling bored', 'rollercoaster ride'
+    ],
+
+    'neutral': [
+        # Original emotions
+        'neutral', 'contemplation', 'nostalgia', 'determination', 'anticipation',
+        'attention', 'calmness', 'concentration', 'meditation', 'observation',
+        'patience', 'reflection', 'thoughtfulness',
+
+        # Activities & mindfulness
+        'yoga', 'meditation', 'relaxation', 'mindfulness', 'breathing', 'spa',
+        'massage', 'sleep',
+
+        # Temporal contexts
+        'evening', 'night',
+
+        # Metaphorical expressions
+        'rollercoaster ride', 'at peace',
+
+        # Phrases
+        'feeling relaxed', 'feeling calm', 'feeling peaceful', 'feeling serene',
+        'feeling present'
+    ]
+}
+
         
-        # Activity-based emotion mapping
-        self.activity_emotions = {
-            # Physical activities
+        # Expanded emotion keywords for Spotify search
+        self.emotion_keywords = {
+            # Primary emotions
+            'joy': ['happy', 'upbeat', 'cheerful', 'joyful', 'excited', 'elated', 'ecstatic', 'blissful'],
+            'sadness': ['sad', 'melancholic', 'emotional', 'depressing', 'heartbroken', 'upset', 'gloomy', 'mournful'],
+            'anger': ['angry', 'intense', 'powerful', 'furious', 'aggressive', 'enraged', 'irate', 'outraged'],
+            'fear': ['anxious', 'nervous', 'scared', 'terrified', 'worried', 'apprehensive', 'frightened'],
+            'love': ['romantic', 'love', 'passionate', 'affectionate', 'tender', 'care', 'devotion', 'adoration'],
+            'surprise': ['energetic', 'exciting', 'dynamic', 'amazing', 'wonderful', 'wow', 'astonishing', 'stunning'],
+            'neutral': ['balanced', 'moderate', 'steady', 'neutral', 'calm', 'peaceful', 'relaxing', 'serene'],
+            
+            # Additional emotions
+            'hope': ['hopeful', 'inspiring', 'uplifting', 'motivational', 'encouraging', 'optimistic', 'positive'],
+            'gratitude': ['grateful', 'thankful', 'appreciative', 'blessed', 'fortunate', 'thankful', 'appreciative'],
+            'pride': ['proud', 'accomplished', 'successful', 'triumphant', 'victorious', 'achievement', 'success'],
+            'nostalgia': ['nostalgic', 'memories', 'retro', 'vintage', 'classic', 'reminiscent', 'sentimental'],
+            'contemplation': ['thoughtful', 'reflective', 'meditative', 'philosophical', 'deep', 'introspective', 'pensive'],
+            'determination': ['determined', 'focused', 'driven', 'ambitious', 'resolute', 'persistent', 'tenacious'],
+            'contentment': ['content', 'satisfied', 'fulfilled', 'at peace', 'serene', 'tranquil', 'satisfied'],
+            'confusion': ['confused', 'uncertain', 'doubtful', 'questioning', 'searching', 'perplexed', 'bewildered'],
+            'disappointment': ['disappointed', 'let down', 'frustrated', 'disheartened', 'discouraged', 'dismayed'],
+            'excitement': ['excited', 'thrilled', 'enthusiastic', 'eager', 'energetic', 'animated', 'exhilarated'],
+            
+            # More specific emotions
+            'awe': ['awe-inspiring', 'majestic', 'grand', 'magnificent', 'sublime', 'wonder', 'amazement'],
+            'desire': ['desirous', 'longing', 'yearning', 'craving', 'passionate', 'eager', 'ardent'],
+            'empathy': ['empathetic', 'compassionate', 'understanding', 'sympathetic', 'caring', 'kind'],
+            'frustration': ['frustrated', 'annoyed', 'irritated', 'exasperated', 'aggravated', 'bothered'],
+            'guilt': ['guilty', 'remorseful', 'regretful', 'apologetic', 'contrite', 'repentant'],
+            'jealousy': ['jealous', 'envious', 'covetous', 'resentful', 'begrudging', 'green-eyed'],
+            'loneliness': ['lonely', 'isolated', 'alone', 'solitary', 'forsaken', 'abandoned'],
+            'optimism': ['optimistic', 'positive', 'hopeful', 'confident', 'upbeat', 'cheerful'],
+            'pessimism': ['pessimistic', 'negative', 'cynical', 'doubtful', 'skeptical', 'gloomy'],
+            'regret': ['regretful', 'remorseful', 'sorry', 'apologetic', 'contrite', 'repentant'],
+            'shame': ['ashamed', 'embarrassed', 'humiliated', 'disgraced', 'mortified', 'chagrined'],
+            'trust': ['trusting', 'faithful', 'loyal', 'reliable', 'dependable', 'confident'],
+            'wonder': ['wondering', 'amazed', 'astonished', 'awestruck', 'marveling', 'fascinated'],
+            
+            # Activity-based emotions
+            'energetic': ['energetic', 'vibrant', 'lively', 'dynamic', 'powerful', 'strong', 'active'],
+            'motivated': ['motivated', 'driven', 'determined', 'focused', 'ambitious', 'goal-oriented'],
+            'accomplished': ['accomplished', 'achieved', 'successful', 'triumphant', 'victorious', 'proud'],
+            'focused': ['focused', 'concentrated', 'attentive', 'mindful', 'present', 'engaged'],
+            'productive': ['productive', 'efficient', 'effective', 'accomplished', 'successful'],
+            'relaxed': ['relaxed', 'calm', 'peaceful', 'serene', 'tranquil', 'at ease'],
+            'social': ['social', 'connected', 'engaged', 'interactive', 'communicative', 'friendly'],
+            'connected': ['connected', 'engaged', 'involved', 'interactive', 'social', 'united'],
+            'mindful': ['mindful', 'present', 'aware', 'conscious', 'attentive', 'focused'],
+            'present': ['present', 'mindful', 'aware', 'conscious', 'attentive', 'focused'],
+
+            #Activities
             'gym': ['energetic', 'motivated', 'strong', 'determined'],
             'running': ['energetic', 'accomplished', 'determined'],
             'workout': ['energetic', 'motivated', 'strong'],
@@ -117,11 +301,8 @@ class EmotionAnalyzer:
             'night': ['tired', 'calm', 'reflective'],
             'weekend': ['relaxed', 'happy', 'content'],
             'monday': ['determined', 'focused', 'productive'],
-            'friday': ['excited', 'happy', 'relaxed']
-        }
+            'friday': ['excited', 'happy', 'relaxed'],
         
-        # Common emotional phrases and metaphorical expressions
-        self.emotional_phrases = {
             # Common metaphorical expressions
             'rollercoaster ride': ['excited', 'anxious', 'mixed emotions'],
             'on top of the world': ['happy', 'accomplished', 'proud'],
@@ -188,105 +369,67 @@ class EmotionAnalyzer:
             'feeling bored': ['bored', 'uninterested', 'disengaged']
         }
         
-        # Expanded emotion keywords for Spotify search
-        self.emotion_keywords = {
-            # Primary emotions
-            'joy': ['happy', 'upbeat', 'cheerful', 'joyful', 'excited', 'elated', 'ecstatic', 'blissful'],
-            'sadness': ['sad', 'melancholic', 'emotional', 'depressing', 'heartbroken', 'upset', 'gloomy', 'mournful'],
-            'anger': ['angry', 'intense', 'powerful', 'furious', 'aggressive', 'enraged', 'irate', 'outraged'],
-            'fear': ['anxious', 'nervous', 'scared', 'terrified', 'worried', 'apprehensive', 'frightened'],
-            'love': ['romantic', 'love', 'passionate', 'affectionate', 'tender', 'care', 'devotion', 'adoration'],
-            'surprise': ['energetic', 'exciting', 'dynamic', 'amazing', 'wonderful', 'wow', 'astonishing', 'stunning'],
-            'neutral': ['balanced', 'moderate', 'steady', 'neutral', 'calm', 'peaceful', 'relaxing', 'serene'],
-            
-            # Additional emotions
-            'hope': ['hopeful', 'inspiring', 'uplifting', 'motivational', 'encouraging', 'optimistic', 'positive'],
-            'gratitude': ['grateful', 'thankful', 'appreciative', 'blessed', 'fortunate', 'thankful', 'appreciative'],
-            'pride': ['proud', 'accomplished', 'successful', 'triumphant', 'victorious', 'achievement', 'success'],
-            'nostalgia': ['nostalgic', 'memories', 'retro', 'vintage', 'classic', 'reminiscent', 'sentimental'],
-            'contemplation': ['thoughtful', 'reflective', 'meditative', 'philosophical', 'deep', 'introspective', 'pensive'],
-            'determination': ['determined', 'focused', 'driven', 'ambitious', 'resolute', 'persistent', 'tenacious'],
-            'contentment': ['content', 'satisfied', 'fulfilled', 'at peace', 'serene', 'tranquil', 'satisfied'],
-            'confusion': ['confused', 'uncertain', 'doubtful', 'questioning', 'searching', 'perplexed', 'bewildered'],
-            'disappointment': ['disappointed', 'let down', 'frustrated', 'disheartened', 'discouraged', 'dismayed'],
-            'excitement': ['excited', 'thrilled', 'enthusiastic', 'eager', 'energetic', 'animated', 'exhilarated'],
-            
-            # More specific emotions
-            'awe': ['awe-inspiring', 'majestic', 'grand', 'magnificent', 'sublime', 'wonder', 'amazement'],
-            'desire': ['desirous', 'longing', 'yearning', 'craving', 'passionate', 'eager', 'ardent'],
-            'empathy': ['empathetic', 'compassionate', 'understanding', 'sympathetic', 'caring', 'kind'],
-            'frustration': ['frustrated', 'annoyed', 'irritated', 'exasperated', 'aggravated', 'bothered'],
-            'guilt': ['guilty', 'remorseful', 'regretful', 'apologetic', 'contrite', 'repentant'],
-            'jealousy': ['jealous', 'envious', 'covetous', 'resentful', 'begrudging', 'green-eyed'],
-            'loneliness': ['lonely', 'isolated', 'alone', 'solitary', 'forsaken', 'abandoned'],
-            'optimism': ['optimistic', 'positive', 'hopeful', 'confident', 'upbeat', 'cheerful'],
-            'pessimism': ['pessimistic', 'negative', 'cynical', 'doubtful', 'skeptical', 'gloomy'],
-            'regret': ['regretful', 'remorseful', 'sorry', 'apologetic', 'contrite', 'repentant'],
-            'shame': ['ashamed', 'embarrassed', 'humiliated', 'disgraced', 'mortified', 'chagrined'],
-            'trust': ['trusting', 'faithful', 'loyal', 'reliable', 'dependable', 'confident'],
-            'wonder': ['wondering', 'amazed', 'astonished', 'awestruck', 'marveling', 'fascinated'],
-            
-            # Activity-based emotions
-            'energetic': ['energetic', 'vibrant', 'lively', 'dynamic', 'powerful', 'strong', 'active'],
-            'motivated': ['motivated', 'driven', 'determined', 'focused', 'ambitious', 'goal-oriented'],
-            'accomplished': ['accomplished', 'achieved', 'successful', 'triumphant', 'victorious', 'proud'],
-            'focused': ['focused', 'concentrated', 'attentive', 'mindful', 'present', 'engaged'],
-            'productive': ['productive', 'efficient', 'effective', 'accomplished', 'successful'],
-            'relaxed': ['relaxed', 'calm', 'peaceful', 'serene', 'tranquil', 'at ease'],
-            'social': ['social', 'connected', 'engaged', 'interactive', 'communicative', 'friendly'],
-            'connected': ['connected', 'engaged', 'involved', 'interactive', 'social', 'united'],
-            'mindful': ['mindful', 'present', 'aware', 'conscious', 'attentive', 'focused'],
-            'present': ['present', 'mindful', 'aware', 'conscious', 'attentive', 'focused']
-        }
+    
 
-    def detect_activities(self, text):
-        """Detect activities mentioned in the text and map them to emotions."""
-        detected_emotions = defaultdict(float)
+    def detect_activity(self, text):
+        """
+        Detect if the text contains any activity keywords and return the associated emotions.
+        """
+        text_lower = text.lower()
+        detected_activities = []
         
-        # Check for activities
-        for activity, emotions in self.activity_emotions.items():
-            if activity.lower() in text.lower():
-                for emotion in emotions:
-                    detected_emotions[emotion] += 0.5  # Increased weight for activities
-                    
-        return detected_emotions
-    
-    def detect_emotional_phrases(self, text):
-        """Detect common emotional phrases in the text."""
-        detected_emotions = defaultdict(float)
+        for activity, keywords in self.activity_keywords.items():
+            if any(keyword in text_lower for keyword in keywords):
+                detected_activities.append(activity)
         
-        # Check for emotional phrases
-        for phrase, emotions in self.emotional_phrases.items():
-            if phrase.lower() in text.lower():
-                for emotion in emotions:
-                    detected_emotions[emotion] += 0.5  # Increased weight for phrases
-                    
-        return detected_emotions
-    
-    def detect_temporal_context(self, text):
-        """Detect temporal context in the text."""
-        detected_emotions = defaultdict(float)
-        
-        # Check for temporal context
-        for context, emotions in self.activity_emotions.items():
-            if context.lower() in text.lower():
-                for emotion in emotions:
-                    detected_emotions[emotion] += 0.3  # Moderate weight for temporal context
-                    
-        return detected_emotions
+        return detected_activities
 
     def analyze_text(self, text):
         """
         Analyze the emotional content of the text using multiple models and approaches.
         """
-        # First check for activities and phrases to prioritize them
-        activity_emotions = self.detect_activities(text)
-        phrase_emotions = self.detect_emotional_phrases(text)
-        temporal_emotions = self.detect_temporal_context(text)
+        # First check for activities
+        detected_activities = self.detect_activity(text)
         
-        # If we have strong activity or phrase matches, prioritize them
-        has_strong_context = (len(activity_emotions) > 0 or len(phrase_emotions) > 0)
+        # If activities are detected, prioritize their associated emotions
+        if detected_activities:
+            activity_emotions = []
+            for activity in detected_activities:
+                if activity in self.activity_emotions:
+                    activity_emotions.extend(self.activity_emotions[activity])
+            
+            # Remove duplicates and create emotion objects
+            unique_emotions = list(set(activity_emotions))
+            detected_emotions = []
+            
+            # Assign high confidence to activity-based emotions
+            for emotion in unique_emotions:
+                detected_emotions.append({
+                    'emotion': emotion,
+                    'confidence': 0.9  # High confidence for activity-based emotions
+                })
+            
+            # Get keywords for all detected emotions
+            all_keywords = []
+            for emotion_data in detected_emotions:
+                emotion = emotion_data['emotion']
+                if emotion in self.emotion_keywords:
+                    all_keywords.extend(self.emotion_keywords[emotion])
+            
+            # Remove duplicates
+            all_keywords = list(set(all_keywords))
+            
+            return {
+                'primary_emotion': detected_emotions[0]['emotion'] if detected_emotions else 'neutral',
+                'emotions': detected_emotions,
+                'keywords': all_keywords,
+                'activities': detected_activities,
+                'raw_scores': {
+                    'activity_based': True
+                }
+            }
         
+        # If no activities detected, proceed with normal emotion analysis
         # Get predictions from all models
         results = {}
         for model_name, model in self.models.items():
@@ -303,14 +446,12 @@ class EmotionAnalyzer:
         combined_scores = defaultdict(float)
         total_weight = 0
         
-        # Weight for each model - adjusted to prioritize activities and phrases
+        # Weight for each model
         weights = {
-            'roberta': 0.2 if has_strong_context else 0.3,  # Reduce weight if we have strong context
-            'bert': 0.1 if has_strong_context else 0.2,     # Reduce weight if we have strong context
-            'goemotions': 0.1 if has_strong_context else 0.2, # Reduce weight if we have strong context
-            'nltk': 0.1,     # Lexicon-based approach
-            'activities': 0.3 if has_strong_context else 0.1, # Increase weight if we have strong context
-            'phrases': 0.2 if has_strong_context else 0.1    # Increase weight if we have strong context
+            'roberta': 0.4,  # Primary emotion model
+            'bert': 0.3,     # General sentiment
+            'goemotions': 0.3, # Fine-grained emotions
+            'nltk': 0.2      # Lexicon-based approach
         }
         
         # Process each model's results
@@ -339,18 +480,6 @@ class EmotionAnalyzer:
                 combined_scores['sadness'] += score * weights['nltk']
             elif emotion == 'neu':
                 combined_scores['neutral'] += score * weights['nltk']
-        
-        # Add activity-based emotions
-        for emotion, score in activity_emotions.items():
-            combined_scores[emotion] += score * weights['activities']
-        
-        # Add emotional phrases
-        for emotion, score in phrase_emotions.items():
-            combined_scores[emotion] += score * weights['phrases']
-            
-        # Add temporal context
-        for emotion, score in temporal_emotions.items():
-            combined_scores[emotion] += score * 0.1  # Lower weight for temporal context
         
         # Normalize scores
         total_score = sum(combined_scores.values())
@@ -386,11 +515,10 @@ class EmotionAnalyzer:
             'primary_emotion': primary_emotion,
             'emotions': detected_emotions,
             'keywords': all_keywords,
+            'activities': [],
             'raw_scores': {
                 'nltk': nltk_scores,
-                'models': {k: v for k, v in results.items()},
-                'activities': dict(activity_emotions),
-                'phrases': dict(phrase_emotions)
+                'models': {k: v for k, v in results.items()}
             }
         }
         

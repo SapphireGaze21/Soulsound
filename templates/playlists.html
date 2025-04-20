@@ -6,12 +6,59 @@
     <title>Playlists - Emotion Music Recommender</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <style>
+        /* Video background styles */
+        .video-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -2;
+            overflow: hidden;
+        }
+        
+        .video-background {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            min-width: 100%;
+            min-height: 100%;
+            width: auto;
+            height: auto;
+            transform: translate(-50%, -50%);
+            object-fit: cover;
+            transition: opacity 1s ease-in-out;
+        }
+        
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: -1;
+        }
+
+        .content-wrapper {
+            position: relative;
+            z-index: 1;
+            min-height: 100vh;
+        }
+
+        /* Ensure content is visible on top of video */
+        .container {
+            position: relative;
+            z-index: 1;
+        }
+
         .playlist-card {
-            background-color: white;
+            background-color: rgba(255, 255, 255, 0.9);
             border-radius: 0.5rem;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
             margin-bottom: 1rem;
             overflow: hidden;
+            backdrop-blur-sm;
         }
         .playlist-header {
             padding: 1rem;
@@ -63,55 +110,134 @@
         }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
-    <div class="container mx-auto px-4 py-8">
-        <div class="flex justify-between items-center mb-8">
-            <h1 class="text-4xl font-bold text-indigo-600">Your Playlists</h1>
-            <a href="/" class="text-indigo-600 hover:text-indigo-800">← Back to Home</a>
-        </div>
-
-        <!-- Create Playlist Form -->
-        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-            <h2 class="text-2xl font-semibold mb-4">Create New Playlist</h2>
-            <div class="flex gap-4">
-                <input type="text" id="playlist-name" placeholder="Enter playlist name" 
-                       class="flex-grow px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                <button id="create-playlist-btn" 
-                        class="bg-indigo-600 text-white py-2 px-6 rounded-lg hover:bg-indigo-700 transition duration-200">
-                    Create Playlist
-                </button>
+<body class="bg-gray-100">
+    <!-- Video Background -->
+    <div class="video-container">
+        <video autoplay muted loop playsinline class="video-background" id="background-video">
+            <!-- Source will be set by JavaScript -->
+        </video>
+    </div>
+    <div class="overlay"></div>
+    
+    <div class="content-wrapper">
+        <header class="bg-indigo-600 text-white p-4">
+            <div class="container mx-auto flex justify-between items-center">
+                <h1 class="text-2xl font-bold">Soul Sound</h1>
+                <nav>
+                    <ul class="flex space-x-4">
+                        <li><a href="/" class="hover:text-indigo-200">Home</a></li>
+                        <li><a href="/logout" class="hover:text-indigo-200">Logout</a></li>
+                    </ul>
+                </nav>
             </div>
-        </div>
+        </header>
 
-        <!-- Playlists List -->
-        <div id="playlists-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <!-- Playlists will be loaded here -->
+        <div class="container mx-auto px-4 py-8">
+            <div class="flex justify-between items-center mb-8">
+                <h1 class="text-4xl font-bold text-white">Your Playlists</h1>
+                <a href="/" class="text-white hover:text-indigo-200">← Back to Home</a>
+            </div>
+
+            <!-- Create Playlist Form -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+                <h2 class="text-2xl font-semibold mb-4">Create New Playlist</h2>
+                <div class="flex gap-4">
+                    <input type="text" id="playlist-name" placeholder="Enter playlist name" 
+                           class="flex-grow px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <button id="create-playlist-btn" 
+                            class="bg-indigo-600 text-white py-2 px-6 rounded-lg hover:bg-indigo-700 transition duration-200">
+                        Create Playlist
+                    </button>
+                </div>
+            </div>
+
+            <!-- Playlists List -->
+            <div id="playlists-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Playlists will be loaded here -->
+            </div>
         </div>
     </div>
 
     <script>
         let currentPlaylists = [];
 
+        // List of available videos
+        const videos = [
+            '/static/videos/background.mp4',
+            '/static/videos/background1.mp4',
+            '/static/videos/background2.mp4',
+            '/static/videos/background3.mp4'
+        ];
+
+        // Function to get a random video
+        function getRandomVideo() {
+            const randomIndex = Math.floor(Math.random() * videos.length);
+            return videos[randomIndex];
+        }
+
+        // Function to change video
+        function changeVideo() {
+            const video = document.getElementById('background-video');
+            const newVideo = getRandomVideo();
+            
+            // Fade out current video
+            video.style.opacity = '0';
+            
+            // Wait for fade out
+            setTimeout(() => {
+                video.src = newVideo;
+                video.load();
+                video.play().catch(error => {
+                    console.error('Error playing video:', error);
+                });
+                
+                // Fade in new video
+                video.style.opacity = '1';
+            }, 1000);
+        }
+
+        // Initialize video
+        document.addEventListener('DOMContentLoaded', () => {
+            const video = document.getElementById('background-video');
+            video.src = getRandomVideo();
+            video.load();
+            video.play().catch(error => {
+                console.error('Error playing video:', error);
+            });
+            
+            // Change video every 30 seconds
+            setInterval(changeVideo, 30000);
+        });
+
         // Load playlists
         async function loadPlaylists() {
             try {
+                // Initialize currentPlaylists as an empty array if not already initialized
+                if (!Array.isArray(currentPlaylists)) {
+                    currentPlaylists = [];
+                }
+
                 // First try to load from sessionStorage
                 const cachedPlaylists = sessionStorage.getItem('playlists');
                 if (cachedPlaylists) {
-                    currentPlaylists = JSON.parse(cachedPlaylists);
+                    const parsed = JSON.parse(cachedPlaylists);
+                    currentPlaylists = Array.isArray(parsed) ? parsed : [];
                     displayPlaylists(); // Show cached data immediately
                 }
 
                 // Then fetch from server to ensure we have the latest data
                 const response = await fetch('/playlists');
-                const playlists = await response.json();
-                currentPlaylists = playlists;
+                const data = await response.json();
                 
-                // Update sessionStorage with latest data
-                sessionStorage.setItem('playlists', JSON.stringify(playlists));
-                
-                // Update display with latest data
-                displayPlaylists();
+                if (data.playlists && Array.isArray(data.playlists)) {
+                    currentPlaylists = data.playlists;
+                    // Update sessionStorage with latest data
+                    sessionStorage.setItem('playlists', JSON.stringify(currentPlaylists));
+                    // Update display with latest data
+                    displayPlaylists();
+                } else {
+                    console.error('Invalid playlists data received:', data);
+                }
             } catch (error) {
                 console.error('Error loading playlists:', error);
                 // If fetch fails and we don't have cached data, show error
@@ -189,35 +315,51 @@
             }
 
             try {
+                console.log('Creating playlist with name:', name);  // Debug log
+                
                 const response = await fetch('/playlists', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'Accept': 'application/json'
                     },
-                    body: JSON.stringify({ name }),
+                    body: JSON.stringify({ name: name }),
+                    credentials: 'same-origin'  // Ensure cookies are sent
                 });
 
+                console.log('Response status:', response.status);  // Debug log
                 const data = await response.json();
-                if (data.playlist_id) {
-                    nameInput.value = '';
-                    // Create a new playlist object
-                    const newPlaylist = {
-                        _id: data.playlist_id,
-                        name: name,
-                        songs: []
-                    };
-                    // Add to current playlists
-                    currentPlaylists.unshift(newPlaylist);
-                    // Update sessionStorage
-                    sessionStorage.setItem('playlists', JSON.stringify(currentPlaylists));
-                    // Update display
-                    displayPlaylists();
-                    // Show success message
-                    alert('Playlist created successfully!');
+                console.log('Response data:', data);  // Debug log
+                
+                if (response.ok) {
+                    if (data.playlist_id) {
+                        nameInput.value = '';
+                        // Create a new playlist object
+                        const newPlaylist = {
+                            _id: data.playlist_id,
+                            name: name,
+                            songs: []
+                        };
+                        // Ensure currentPlaylists is an array
+                        if (!Array.isArray(currentPlaylists)) {
+                            currentPlaylists = [];
+                        }
+                        // Add to current playlists
+                        currentPlaylists.unshift(newPlaylist);
+                        // Update sessionStorage
+                        sessionStorage.setItem('playlists', JSON.stringify(currentPlaylists));
+                        // Update display
+                        displayPlaylists();
+                        // Show success message
+                        alert('Playlist created successfully!');
+                    }
+                } else {
+                    // Show error message from server
+                    alert(data.error || 'Failed to create playlist');
                 }
             } catch (error) {
                 console.error('Error creating playlist:', error);
-                alert('Failed to create playlist');
+                alert('Failed to create playlist. Please try again.');
             }
         });
 
@@ -270,71 +412,24 @@
             }
         }
 
-        // Load playlists when the page loads
-        document.addEventListener('DOMContentLoaded', async () => {
-            await loadPlaylists();
-            
-            // Check if there's a pending song to add
-            const pendingSong = JSON.parse(sessionStorage.getItem('pendingSong') || 'null');
-            if (pendingSong) {
-                showAddToPlaylistDialog(pendingSong);
-            }
-        });
-
-        // Function to show the add to playlist dialog
-        function showAddToPlaylistDialog(song) {
-            if (currentPlaylists.length === 0) {
-                if (confirm('No playlists found. Would you like to create a new playlist?')) {
-                    // Clear the pending song
-                    sessionStorage.removeItem('pendingSong');
-                    return;
-                }
-                return;
-            }
-
-            const playlistOptions = currentPlaylists.map(playlist => 
-                `<option value="${playlist._id}">${playlist.name}</option>`
-            ).join('');
-
-            // Properly escape the song data for the onclick handler
-            const songDataStr = JSON.stringify(song).replace(/"/g, '&quot;');
-
-            const dialog = document.createElement('div');
-            dialog.innerHTML = `
-                <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div class="bg-white p-6 rounded-lg max-w-md w-full">
-                        <h3 class="text-lg font-semibold mb-4">Add to Playlist</h3>
-                        <p class="mb-4">${song.name} - ${song.artist}</p>
-                        <select class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4">
-                            ${playlistOptions}
-                        </select>
-                        <div class="flex justify-end gap-2">
-                            <button class="bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700" 
-                                    onclick="addSongToPlaylist(this.parentElement.parentElement.querySelector('select').value, ${songDataStr})">
-                                Add
-                            </button>
-                            <button class="bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400" 
-                                    onclick="this.parentElement.parentElement.parentElement.remove(); sessionStorage.removeItem('pendingSong');">
-                                Cancel
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            document.body.appendChild(dialog);
-        }
-
         // Function to add song to playlist
         async function addSongToPlaylist(playlistId, song) {
             try {
+                console.log('Adding song to playlist:', { playlistId, song });  // Debug log
+                
                 const response = await fetch(`/playlists/${playlistId}/songs`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'Accept': 'application/json'
                     },
-                    body: JSON.stringify(song),
+                    body: JSON.stringify({ song: song }),
+                    credentials: 'same-origin'
                 });
+
+                console.log('Response status:', response.status);  // Debug log
+                const data = await response.json();
+                console.log('Response data:', data);  // Debug log
 
                 if (response.ok) {
                     // Update local playlist data
@@ -353,12 +448,76 @@
                     // Reload playlists to show the updated state
                     await loadPlaylists();
                 } else {
-                    alert('Failed to add song to playlist');
+                    alert(data.error || 'Failed to add song to playlist');
                 }
             } catch (error) {
                 console.error('Error adding song to playlist:', error);
                 alert('Failed to add song to playlist');
             }
+        }
+
+        // Load playlists when the page loads
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadPlaylists();
+            
+            // Check if there's a pending song to add
+            const pendingSong = JSON.parse(sessionStorage.getItem('pendingSong') || 'null');
+            if (pendingSong) {
+                console.log('Found pending song:', pendingSong);  // Debug log
+                showAddToPlaylistDialog(pendingSong);
+            }
+        });
+
+        // Function to show the add to playlist dialog
+        function showAddToPlaylistDialog(song) {
+            if (!song) {
+                console.error('No song data provided to showAddToPlaylistDialog');
+                return;
+            }
+
+            if (currentPlaylists.length === 0) {
+                if (confirm('No playlists found. Would you like to create a new playlist?')) {
+                    // Focus on the playlist name input
+                    document.getElementById('playlist-name').focus();
+                    // Keep the pending song in sessionStorage
+                    return;
+                }
+                // If user doesn't want to create a playlist, clear the pending song
+                sessionStorage.removeItem('pendingSong');
+                return;
+            }
+
+            const playlistOptions = currentPlaylists.map(playlist => 
+                `<option value="${playlist._id}">${playlist.name}</option>`
+            ).join('');
+
+            // Create a safe version of the song object for the onclick handler
+            const songJson = JSON.stringify(song).replace(/"/g, '&quot;');
+
+            const dialog = document.createElement('div');
+            dialog.innerHTML = `
+                <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div class="bg-white p-6 rounded-lg max-w-md w-full">
+                        <h3 class="text-lg font-semibold mb-4">Add to Playlist</h3>
+                        <p class="mb-4">${song.name} - ${song.artist}</p>
+                        <select id="playlist-select" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4">
+                            ${playlistOptions}
+                        </select>
+                        <div class="flex justify-end gap-2">
+                            <button class="bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700" 
+                                    onclick="addSongToPlaylist(document.getElementById('playlist-select').value, JSON.parse('${songJson}'))">
+                                Add
+                            </button>
+                            <button class="bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400" 
+                                    onclick="this.closest('.fixed').remove(); sessionStorage.removeItem('pendingSong');">
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(dialog);
         }
     </script>
 </body>

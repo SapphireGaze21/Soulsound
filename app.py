@@ -1,286 +1,381 @@
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, session
 from utils.emotion import EmotionAnalyzer
 from utils.spotify import SpotifyRecommender
-from utils.mongodb import MongoDB
+from utils.database import MongoDB
 import random
-from functools import wraps
 import os
+from functools import wraps
+from bson.objectid import ObjectId
 
 app = Flask(__name__)
-# Add secret key for session management
-app.secret_key = os.urandom(24)
+app.secret_key = os.urandom(24)  # Required for session management
 emotion_analyzer = EmotionAnalyzer()
 spotify_recommender = SpotifyRecommender()
-mongodb = MongoDB(app)
+db = MongoDB(app)
 
-# Add this function to check if user is logged in
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if 'user_id' not in session:
+        # Skip authentication for API endpoints that use JSON
+        if request.is_json:
+            return f(*args, **kwargs)
+        if 'username' not in session:
+            flash('Please log in to access this page.')
             return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated_function
 
-# Add these routes for authentication
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        
-        user = mongodb.verify_user(username, password)
-        if user:
-            session['user_id'] = str(user['_id'])
-            session['username'] = user['username']
-            return redirect(url_for('index'))
-        else:
-            return render_template('login.html', error='Invalid username or password')
-    
-    # Get success message from registration if any
-    message = request.args.get('message')
-    return render_template('login.html', message=message)
-
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        confirm_password = request.form.get('confirm_password')
-        
-        if password != confirm_password:
-            return render_template('register.html', error='Passwords do not match')
-        
-        if len(password) < 6:
-            return render_template('register.html', error='Password must be at least 6 characters long')
-        
-        user_id = mongodb.create_user(username, password)
-        if user_id:
-            # Instead of logging in, redirect to login page with success message
-            return redirect(url_for('login', message='Registration successful! Please login with your credentials.'))
-        else:
-            return render_template('register.html', error='Username already exists')
-    
-    return render_template('register.html')
-
-@app.route('/logout')
-def logout():
-    # Clear Flask session
-    session.clear()
-    # Return a response that will also clear browser session storage
-    response = redirect(url_for('login'))
-    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-    response.headers['Pragma'] = 'no-cache'
-    response.headers['Expires'] = '0'
-    return response
-
-# Update the index route to require login
 @app.route('/')
 @login_required
 def index():
     return render_template('index.html')
 
-# Update the playlists route to require login
-@app.route('/playlists')
-@login_required
-def playlists_page():
-    return render_template('playlists.html')
-
-@app.route('/analyze', methods=['POST'])
-@login_required
-def analyze():
-    text = request.json.get('text', '')
-    language = request.json.get('language', 'en')  # Default to English if not specified
-    
-    if not text:
-        return jsonify({'error': 'No text provided'}), 400
-
-    # Analyze emotion
-    emotion_result = emotion_analyzer.analyze_text(text)
-    
-    # Get song recommendations for each detected emotion
-    emotion_recommendations = {}
-    for emotion_data in emotion_result['emotions']:
-        emotion = emotion_data['emotion']
-        # Get 3 songs for each emotion
-        songs = spotify_recommender.get_recommendations_for_emotion(
-            emotion, 
-            language=language,
-            limit=3
-        )
-        emotion_recommendations[emotion] = songs
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
         
-        # If there are similar emotions, add their keywords to improve recommendations
-        if 'similar_emotions' in emotion_data and emotion_data['similar_emotions']:
-            # Get additional songs based on similar emotions
-            for similar_emotion in emotion_data['similar_emotions']:
-                similar_songs = spotify_recommender.get_recommendations_for_emotion(
-                    similar_emotion,
-                    language=language,
-                    limit=1  # Get fewer songs for similar emotions
-                )
-                # Add to the main emotion's recommendations
-                emotion_recommendations[emotion].extend(similar_songs)
-            
-            # Remove duplicates and limit to 3 songs
-            seen = set()
-            unique_songs = []
-            for song in emotion_recommendations[emotion]:
-                if song['name'] not in seen:
-                    seen.add(song['name'])
-                    unique_songs.append(song)
-                if len(unique_songs) >= 3:
-                    break
-            emotion_recommendations[emotion] = unique_songs
+        user = db.verify_user(username, password)
+        if user:
+            session['username'] = username
+            session['user_id'] = str(user['_id'])
+            flash('Login successful!')
+            return redirect(url_for('index'))
+        else:
+            flash('Invalid username or password')
     
-    # Get general recommendations based on all keywords
-    # Prioritize keywords from the primary emotion
-    primary_emotion = emotion_result['primary_emotion']
-    primary_keywords = emotion_analyzer.emotion_keywords.get(primary_emotion, [])
-    
-    # Combine primary keywords with all keywords, putting primary keywords first
-    prioritized_keywords = primary_keywords + [k for k in emotion_result['keywords'] if k not in primary_keywords]
-    
-    general_recommendations = spotify_recommender.get_recommendations(
-        prioritized_keywords,
-        language=language,
-        limit=3
-    )
-    
-    return jsonify({
-        'primary_emotion': emotion_result['primary_emotion'],
-        'emotions': emotion_result['emotions'],
-        'emotion_recommendations': emotion_recommendations,
-        'general_recommendations': general_recommendations,
-        'keywords': prioritized_keywords
-    })
+    return render_template('login.html')
 
-@app.route('/shuffle', methods=['POST'])
-def shuffle():
-    """
-    Shuffle song recommendations for a specific emotion or get new general recommendations.
-    """
-    data = request.json
-    emotion = data.get('emotion', '')
-    language = data.get('language', 'en')
-    is_general = data.get('is_general', False)
-    
-    if not emotion and not is_general:
-        return jsonify({'error': 'No emotion provided'}), 400
-    
-    # Generate a random offset to get different songs
-    offset = random.randint(5, 20)
-    
-    if is_general:
-        # Get new general recommendations
-        keywords = data.get('keywords', [])
-        if not keywords:
-            return jsonify({'error': 'No keywords provided for general recommendations'}), 400
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
         
-        recommendations = spotify_recommender.get_recommendations(
-            keywords,
-            language=language,
-            limit=3,
-            offset=offset
-        )
-        
-        return jsonify({
-            'recommendations': recommendations
-        })
-    else:
-        # Get new recommendations for the specific emotion
-        recommendations = spotify_recommender.get_recommendations_for_emotion(
-            emotion,
-            language=language,
-            limit=3,
-            offset=offset
-        )
-        
-        return jsonify({
-            'recommendations': recommendations
-        })
+        user_id = db.create_user(username, password)
+        if user_id:
+            flash('Registration successful! Please login.')
+            return redirect(url_for('login'))
+        else:
+            flash('Username already exists')
+    
+    return render_template('register.html')
 
-@app.route('/test_emotion', methods=['GET'])
-def test_emotion():
-    """Test route to check if the emotion analyzer is working correctly."""
-    test_text = "I am feeling very happy and excited today!"
-    emotion_result = emotion_analyzer.analyze_text(test_text)
-    return jsonify({
-        'test_text': test_text,
-        'emotion_result': emotion_result
-    })
+@app.route('/logout')
+def logout():
+    session.pop('username', None)
+    session.pop('user_id', None)
+    flash('You have been logged out')
+    return redirect(url_for('login'))
 
 @app.route('/playlists', methods=['GET'])
 @login_required
 def get_playlists():
     user_id = session.get('user_id')
-    playlists = mongodb.get_user_playlists(user_id)
-    return jsonify(playlists)
+    if not user_id:
+        print("Error: No user ID in session")  # Debug log
+        return jsonify({'error': 'User not found', 'playlists': []}), 404
+    
+    print(f"Fetching playlists for user ID: {user_id}")  # Debug log
+    playlists = db.get_user_playlists(user_id)
+    print(f"Found {len(playlists)} playlists")  # Debug log
+    
+    return jsonify({
+        'playlists': playlists or []  # Ensure we always return a list
+    })
 
 @app.route('/playlists', methods=['POST'])
 @login_required
 def create_playlist():
+    try:
+        print("Received create playlist request")  # Debug log
+        data = request.get_json()
+        print(f"Request data: {data}")  # Debug log
+        
+        name = data.get('name')
+        user_id = session.get('user_id')
+        
+        print(f"Creating playlist - Name: {name}, User ID: {user_id}")  # Debug log
+        
+        if not name:
+            print("Error: No playlist name provided")  # Debug log
+            return jsonify({'error': 'Playlist name is required'}), 400
+        
+        if not user_id:
+            print("Error: No user ID in session")  # Debug log
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Create the playlist
+        playlist_id = db.create_playlist(name, user_id)
+        print(f"Playlist created with ID: {playlist_id}")  # Debug log
+        
+        if playlist_id:
+            return jsonify({
+                'message': 'Playlist created successfully',
+                'playlist_id': playlist_id
+            })
+        else:
+            print("Error: Failed to create playlist in database")  # Debug log
+            return jsonify({'error': 'Failed to create playlist'}), 500
+            
+    except Exception as e:
+        print(f"Error in create_playlist route: {str(e)}")  # Debug log
+        return jsonify({'error': 'An error occurred while creating playlist'}), 500
+
+@app.route('/playlists/<playlist_id>', methods=['PUT'])
+@login_required
+def update_playlist(playlist_id):
     data = request.json
-    name = data.get('name')
-    user_id = session.get('user_id')
+    new_name = data.get('name')
     
-    if not name:
-        return jsonify({'error': 'Playlist name is required'}), 400
+    if not new_name:
+        return jsonify({'error': 'New playlist name is required'}), 400
     
-    playlist_id = mongodb.create_playlist(name, user_id)
-    if playlist_id:
-        return jsonify({'playlist_id': playlist_id}), 201
-    else:
-        return jsonify({'error': 'Failed to create playlist'}), 500
-
-@app.route('/playlists/<playlist_id>/songs', methods=['POST'])
-def add_song_to_playlist(playlist_id):
-    """Add a song to a playlist"""
-    song = request.json
-    if not song:
-        return jsonify({'error': 'Song data is required'}), 400
-    
-    success = mongodb.add_song_to_playlist(playlist_id, song)
+    success = db.update_playlist_name(playlist_id, new_name)
     if success:
-        return jsonify({'message': 'Song added to playlist'})
-    return jsonify({'error': 'Failed to add song to playlist'}), 400
-
-@app.route('/playlists/<playlist_id>/songs/<song_id>', methods=['DELETE'])
-def remove_song_from_playlist(playlist_id, song_id):
-    """Remove a song from a playlist"""
-    success = mongodb.remove_song_from_playlist(playlist_id, song_id)
-    if success:
-        return jsonify({'message': 'Song removed from playlist'})
-    return jsonify({'error': 'Failed to remove song from playlist'}), 400
-
-@app.route('/playlists/<playlist_id>', methods=['GET'])
-def get_playlist(playlist_id):
-    """Get a specific playlist"""
-    playlist = mongodb.get_playlist(playlist_id)
-    if playlist:
-        return jsonify(playlist)
+        return jsonify({'message': 'Playlist updated successfully'})
     return jsonify({'error': 'Playlist not found'}), 404
 
 @app.route('/playlists/<playlist_id>', methods=['DELETE'])
+@login_required
 def delete_playlist(playlist_id):
-    """Delete a playlist"""
-    success = mongodb.delete_playlist(playlist_id)
+    success = db.delete_playlist(playlist_id)
     if success:
-        return jsonify({'message': 'Playlist deleted'})
-    return jsonify({'error': 'Failed to delete playlist'}), 400
+        return jsonify({'message': 'Playlist deleted successfully'})
+    return jsonify({'error': 'Playlist not found'}), 404
 
-@app.route('/playlists/<playlist_id>', methods=['PUT'])
-def update_playlist(playlist_id):
-    """Update playlist name"""
-    data = request.json
-    new_name = data.get('name')
-    if not new_name:
-        return jsonify({'error': 'New name is required'}), 400
-    
-    success = mongodb.update_playlist_name(playlist_id, new_name)
+@app.route('/playlists/<playlist_id>/songs', methods=['POST'])
+@login_required
+def add_song_to_playlist(playlist_id):
+    try:
+        print(f"Adding song to playlist {playlist_id}")  # Debug log
+        data = request.get_json()
+        print(f"Request data: {data}")  # Debug log
+        
+        song = data.get('song')
+        if not song:
+            print("Error: No song data provided")  # Debug log
+            return jsonify({'error': 'Song data is required'}), 400
+        
+        # Ensure song has required fields
+        required_fields = ['name', 'artist', 'url']
+        missing_fields = [field for field in required_fields if field not in song]
+        if missing_fields:
+            print(f"Error: Missing required fields: {missing_fields}")  # Debug log
+            return jsonify({'error': f'Missing required song fields: {", ".join(missing_fields)}'}), 400
+        
+        # Add song to playlist
+        success = db.add_song_to_playlist(playlist_id, song)
+        print(f"Add song result: {success}")  # Debug log
+        
+        if success:
+            return jsonify({'message': 'Song added to playlist successfully'})
+        return jsonify({'error': 'Playlist not found'}), 404
+        
+    except Exception as e:
+        print(f"Error in add_song_to_playlist: {str(e)}")  # Debug log
+        return jsonify({'error': 'An error occurred while adding song to playlist'}), 500
+
+@app.route('/playlists/<playlist_id>/songs/<song_id>', methods=['DELETE'])
+@login_required
+def remove_song_from_playlist(playlist_id, song_id):
+    success = db.remove_song_from_playlist(playlist_id, song_id)
     if success:
-        return jsonify({'message': 'Playlist updated'})
-    return jsonify({'error': 'Failed to update playlist'}), 400
+        return jsonify({'message': 'Song removed from playlist successfully'})
+    return jsonify({'error': 'Song or playlist not found'}), 404
+
+@app.route('/analyze', methods=['POST'])
+@login_required
+def analyze():
+    try:
+        text = request.json.get('text', '')
+        language = request.json.get('language', 'en')
+        
+        if not text:
+            return jsonify({'error': 'No text provided'}), 400
+        
+        # Analyze emotion
+        emotion_result = emotion_analyzer.analyze_text(text)
+        
+        return jsonify({
+            'emotions': emotion_result['emotions']
+        })
+    except Exception as e:
+        print(f"Error in analyze route: {str(e)}")
+        return jsonify({'error': 'An error occurred during analysis'}), 500
+
+@app.route('/get-recommendations', methods=['POST'])
+@login_required
+def get_recommendations():
+    try:
+        selected_moods = request.json.get('selected_moods', [])
+        language = request.json.get('language', 'en')
+        
+        if not selected_moods:
+            return jsonify({'error': 'No moods selected'}), 400
+        
+        recommendations = []
+        # Get 2 songs per mood to ensure a good mix
+        songs_per_mood = 2
+        
+        for mood in selected_moods:
+            try:
+                songs = spotify_recommender.get_recommendations_for_emotion(
+                    mood,
+                    language=language,
+                    limit=songs_per_mood
+                )
+                if songs:  # Only extend if we got songs back
+                    recommendations.extend(songs)
+            except Exception as e:
+                print(f"Error getting recommendations for mood {mood}: {str(e)}")
+                continue
+        
+        # Remove duplicates and limit to 5 songs
+        seen = set()
+        unique_recommendations = []
+        for song in recommendations:
+            if song['name'] not in seen:
+                seen.add(song['name'])
+                unique_recommendations.append(song)
+            if len(unique_recommendations) >= 5:
+                break
+        
+        if not unique_recommendations:
+            return jsonify({'error': 'No recommendations found'}), 404
+        
+        return jsonify({
+            'recommendations': unique_recommendations
+        })
+    except Exception as e:
+        print(f"Error in get_recommendations route: {str(e)}")
+        return jsonify({'error': 'An error occurred while getting recommendations'}), 500
+
+@app.route('/shuffle', methods=['POST'])
+@login_required
+def shuffle():
+    """
+    Shuffle song recommendations based on selected moods and language.
+    Improved version with better randomization and mood balancing.
+    """
+    try:
+        data = request.json
+        language = data.get('language', 'en')
+        selected_moods = data.get('selected_moods', [])
+        
+        if not selected_moods:
+            return jsonify({'error': 'No moods selected'}), 400
+        
+        # Calculate number of songs per mood based on total moods
+        total_moods = len(selected_moods)
+        songs_per_mood = max(2, min(3, 5 // total_moods))  # Adjust songs per mood based on total moods
+        
+        # Generate multiple random offsets for better variety
+        offsets = [random.randint(0, 100) for _ in range(3)]  # Generate 3 different offsets
+        
+        recommendations = []
+        seen_songs = set()
+        
+        # Try each offset to get different sets of songs
+        for offset in offsets:
+            for mood in selected_moods:
+                try:
+                    songs = spotify_recommender.get_recommendations_for_emotion(
+                        mood,
+                        language=language,
+                        limit=songs_per_mood,
+                        offset=offset
+                    )
+                    
+                    if not songs:  # Skip if no songs returned
+                        continue
+                    
+                    # Add only new songs to recommendations
+                    for song in songs:
+                        if song['name'] not in seen_songs:
+                            seen_songs.add(song['name'])
+                            recommendations.append(song)
+                            
+                            # If we have enough songs, break early
+                            if len(recommendations) >= 5:
+                                break
+                                
+                    if len(recommendations) >= 5:
+                        break
+                        
+                except Exception as e:
+                    print(f"Error getting recommendations for mood {mood}: {str(e)}")
+                    continue
+                    
+            if len(recommendations) >= 5:
+                break
+        
+        # If we still don't have enough songs, try one more time with default offset
+        if len(recommendations) < 5:
+            remaining_slots = 5 - len(recommendations)
+            for mood in selected_moods:
+                try:
+                    songs = spotify_recommender.get_recommendations_for_emotion(
+                        mood,
+                        language=language,
+                        limit=remaining_slots
+                    )
+                    
+                    if not songs:  # Skip if no songs returned
+                        continue
+                    
+                    for song in songs:
+                        if song['name'] not in seen_songs:
+                            seen_songs.add(song['name'])
+                            recommendations.append(song)
+                            
+                            if len(recommendations) >= 5:
+                                break
+                                
+                    if len(recommendations) >= 5:
+                        break
+                        
+                except Exception as e:
+                    print(f"Error getting final recommendations for mood {mood}: {str(e)}")
+                    continue
+        
+        if not recommendations:
+            return jsonify({'error': 'No recommendations found'}), 404
+        
+        # Shuffle the final recommendations to ensure random order
+        random.shuffle(recommendations)
+        
+        # Ensure we have exactly 5 songs
+        recommendations = recommendations[:5]
+        
+        return jsonify({
+            'recommendations': recommendations,
+            'moods_used': selected_moods,
+            'total_songs': len(recommendations)
+        })
+    except Exception as e:
+        print(f"Error in shuffle route: {str(e)}")
+        return jsonify({'error': 'An error occurred while shuffling recommendations'}), 500
+
+@app.route('/test_emotion', methods=['GET'])
+def test_emotion():
+    """Test route to check if the emotion analyzer is working correctly."""
+    try:
+        test_text = "I am feeling very happy and excited today!"
+        emotion_result = emotion_analyzer.analyze_text(test_text)
+        return jsonify({
+            'test_text': test_text,
+            'emotion_result': emotion_result
+        })
+    except Exception as e:
+        print(f"Error in test_emotion route: {str(e)}")
+        return jsonify({'error': 'An error occurred while testing emotions'}), 500
+
+@app.route('/playlists-page')
+@login_required
+def playlists_page():
+    return render_template('playlists.html')
 
 if __name__ == '__main__':
     app.run(debug=True) 

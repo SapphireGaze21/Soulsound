@@ -96,7 +96,7 @@ class SpotifyRecommender:
             'ur': ['urdu pop', 'ghazal', 'qawwali']
         }
 
-    def get_recommendations_for_emotion(self, emotion, language='en', limit=3, offset=0):
+    def get_recommendations_for_emotion(self, emotion, language='en', limit=5, offset=0):
         """
         Get song recommendations for a specific emotion and language.
         Returns a mix of popular and underrated songs.
