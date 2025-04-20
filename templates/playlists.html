@@ -108,6 +108,38 @@
             text-align: center;
             color: #6b7280;
         }
+        
+        /* Audio player styles */
+        .audio-player {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 100;
+            background-color: rgba(0, 0, 0, 0.5);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .audio-player:hover {
+            background-color: rgba(0, 0, 0, 0.7);
+            transform: scale(1.1);
+        }
+
+        .audio-player.muted {
+            opacity: 0.7;
+        }
+
+        .audio-player svg {
+            width: 24px;
+            height: 24px;
+            color: white;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -122,10 +154,14 @@
     <div class="content-wrapper">
         <header class="bg-indigo-600 text-white p-4">
             <div class="container mx-auto flex justify-between items-center">
-                <h1 class="text-2xl font-bold">Soul Sound</h1>
+                <div class="flex items-center space-x-3">
+                    <img src="{{ url_for('static', filename='images/Logo.png') }}" alt="Soul Sound Logo" class="h-8 w-auto">
+                    <h1 class="text-2xl font-bold">Soul Sound</h1>
+                </div>
                 <nav>
                     <ul class="flex space-x-4">
                         <li><a href="/" class="hover:text-indigo-200">Home</a></li>
+                        <li><a href="/journals-page" class="hover:text-indigo-200">My Journals</a></li>
                         <li><a href="/logout" class="hover:text-indigo-200">Logout</a></li>
                     </ul>
                 </nav>
@@ -519,6 +555,95 @@
 
             document.body.appendChild(dialog);
         }
+    </script>
+    
+    <!-- Audio Player -->
+    <div id="audio-player" class="audio-player">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15.536a5 5 0 001.414-7.072m-2.828 9.9a9 9 0 010-12.728" />
+        </svg>
+    </div>
+
+    <script>
+        // Audio player functionality
+        let audioPlayer;
+        let isMuted = false;
+        let currentAudioIndex = 0;
+        const audioFiles = [
+            '/static/audio/audio1.mp3',
+            '/static/audio/audio2.mp3'
+        ];
+
+        // Function to initialize audio player
+        function initAudioPlayer() {
+            audioPlayer = new Audio(audioFiles[currentAudioIndex]);
+            audioPlayer.loop = true;
+            audioPlayer.volume = 0.5;
+            
+            // Check if user has previously muted
+            const mutedState = localStorage.getItem('audioMuted');
+            if (mutedState === 'true') {
+                audioPlayer.muted = true;
+                isMuted = true;
+                document.getElementById('audio-player').classList.add('muted');
+                updateAudioIcon(true);
+            } else {
+                audioPlayer.play().catch(error => {
+                    console.error('Error playing audio:', error);
+                });
+            }
+            
+            // Add event listener for when audio ends
+            audioPlayer.addEventListener('ended', () => {
+                // Switch to next audio file
+                currentAudioIndex = (currentAudioIndex + 1) % audioFiles.length;
+                audioPlayer.src = audioFiles[currentAudioIndex];
+                audioPlayer.play().catch(error => {
+                    console.error('Error playing next audio:', error);
+                });
+            });
+            
+            // Add click event to toggle mute
+            document.getElementById('audio-player').addEventListener('click', toggleMute);
+        }
+        
+        // Function to toggle mute
+        function toggleMute() {
+            isMuted = !isMuted;
+            audioPlayer.muted = isMuted;
+            
+            // Update UI
+            document.getElementById('audio-player').classList.toggle('muted');
+            updateAudioIcon(isMuted);
+            
+            // Save preference
+            localStorage.setItem('audioMuted', isMuted);
+        }
+        
+        // Function to update audio icon
+        function updateAudioIcon(muted) {
+            const audioPlayerElement = document.getElementById('audio-player');
+            
+            if (muted) {
+                audioPlayerElement.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15.536a5 5 0 001.414-7.072m-2.828 9.9a9 9 0 010-12.728M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                    </svg>
+                `;
+            } else {
+                audioPlayerElement.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15.536a5 5 0 001.414-7.072m-2.828 9.9a9 9 0 010-12.728" />
+                    </svg>
+                `;
+            }
+        }
+
+        // Initialize audio player when the page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            initAudioPlayer();
+        });
     </script>
 </body>
 </html> 
