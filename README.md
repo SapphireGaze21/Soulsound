@@ -195,6 +195,8 @@ Soul Sound has various applications across different domains:
 ## Demo Video
 
 Link to demo video here
+(https://drive.google.com/drive/folders/1Fu1y8Pv1vZtxqpQqhgV3qO9XZ_NzhO3O)
+
 ---
 
 <div align="center">
