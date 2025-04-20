@@ -32,9 +32,9 @@ Initially, we thought of making an AI application called "RizzOrRoast" wherein t
 - Generative AI and machine learning
 
 ### Contributors
-- Navya Balaji - BT2024262
-- Thapan Komaravelly - BT2024076
-- Ruthvik CSS - BT2024051
+- [Navya Balaji](https://github.com/navyabalaji) - BT2024262
+- [Thapan Komaravelly](https://github.com/SapphireGaze21) - BT2024076
+- [Ruthvik CSS](https://github.com/Ruthvik-CSS) - BT2024051
 
 ## ✨ Features
 
