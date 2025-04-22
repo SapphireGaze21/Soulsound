@@ -107,7 +107,7 @@ Initially, we thought of making an AI application called "RizzOrRoast" wherein t
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/soulsound.git
+git clone https://github.com/SapphireGaze21/soulsound.git
 cd soulsound
 ```
 
